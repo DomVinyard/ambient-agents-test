@@ -6,6 +6,7 @@ export type ActionItem = {
   type: 'question' | 'decision' | 'clarification' | 'execution' | 'suggested-agent' | 'suggested-connection';
   text: string;
   options?: string[]; // for decision/checklist
+  action?: { type: string; [key: string]: any };
 };
 
 type ActionCardProps = {

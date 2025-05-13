@@ -7,6 +7,14 @@ function Actions() {
   const firstAction = actions[0];
 
   const handleRespond = (response: any) => {
+    if (firstAction && firstAction.action) {
+      if (firstAction.action.type === 'connection' && firstAction.action.service === 'gmail') {
+        // Here you would trigger Gmail OAuth and processing
+        console.log('Trigger Gmail OAuth and process data');
+        // TODO: Implement actual OAuth and data processing
+        return;
+      }
+    }
     // For now, just log the response. Later, you can update state or move to next action.
     console.log('User response:', response);
   };

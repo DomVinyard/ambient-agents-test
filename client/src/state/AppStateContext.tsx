@@ -18,7 +18,11 @@ export type AppState = {
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
 const DEFAULT_ACTIONS = [
-  { type: 'question', text: 'Do you use Gmail?' }
+  {
+    type: 'question',
+    text: 'Do you use Gmail?',
+    action: { type: 'connection', service: 'gmail' }
+  }
 ];
 
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
