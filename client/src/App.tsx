@@ -6,6 +6,7 @@ import Memory from './pages/Memory';
 import Connection from './pages/Connection';
 import Agent from './pages/Agent';
 import Sidebar from './components/Sidebar';
+import { PusherReceiver } from './components/PusherReceiver';
 
 function App() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ function App() {
 
   return (
     <Flex minH="100vh" w="100vw" bg="gray.900">
+      <PusherReceiver />
       <Sidebar />
       <Box flex="1" p={6}>
         <Routes>

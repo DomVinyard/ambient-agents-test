@@ -1,32 +1,41 @@
-import { Box, Stack, Text, Button, Badge, Icon, Image, Menu, MenuButton, MenuList, MenuItem, IconButton } from '@chakra-ui/react';
+import { Box, Stack, Text, Button, Badge, Icon, Image, Menu, MenuButton, MenuList, MenuItem, IconButton, Spinner } from '@chakra-ui/react';
 import { FiMail, FiZap, FiCloudLightning, FiSearch, FiSettings, FiRefreshCw } from 'react-icons/fi';
 import { FaBrain } from 'react-icons/fa';
 import { GiBrain } from 'react-icons/gi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppState } from '../state/AppStateContext';
 import axios from 'axios';
+import { useState } from 'react';
+import { getOrCreateSessionId } from '../state/session';
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { resetDemo, actions, connections, agentsActive, agentSuggestions, setAgentSuggestions } = useAppState();
+  const [refreshLoading, setRefreshLoading] = useState(false);
 
-  // Handler to fetch and add a mock agent
+  // Handler to fetch and add agent suggestions
   const handleRefreshMockAgent = async () => {
+    setRefreshLoading(true);
     try {
-      const res = await axios.get('/api/mock-agent');
-      console.log('Fetched mock agent:', res.data);
-      const updatedSuggestions = [res.data, ...agentSuggestions];
-      setAgentSuggestions(updatedSuggestions);
-      console.log('Updated agentSuggestions:', updatedSuggestions);
+      setAgentSuggestions([]);
+      // Use getOrCreateSessionId to ensure correct sessionId
+      const sessionId = getOrCreateSessionId();
+      const res = await axios.post('http://localhost:3001/api/mock-agent', { sessionId });
+      console.log('Fetched agent suggestions:', res.data);
+      const suggestions = Array.isArray(res.data) ? res.data : [res.data];
+      setAgentSuggestions(suggestions);
+      console.log('Updated agentSuggestions:', suggestions);
+      navigate('/');
     } catch (err) {
-      // Optionally handle error
-      console.error('Failed to fetch mock agent', err);
+      console.error('Failed to fetch agent suggestions', err);
+    } finally {
+      setRefreshLoading(false);
     }
   };
 
   return (
-    <Box w="64" bg="gray.800" p={4} borderRight="1px" borderColor="gray.700">
+    <Box w="76.8" bg="gray.800" p={4} borderRight="1px" borderColor="gray.700">
       <Stack spacing={6} align="stretch">
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Image src="/logo.png" alt="Logo" maxW="100px" objectFit="contain" />
@@ -104,24 +113,25 @@ function Sidebar() {
                 onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
                 pl={2}
               >
-                {agent.title || agent.id || 'Unknown Agent'}
+                {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
               </Button>
             ))
           )}
         </Stack>
         {/* Suggested Agents Section */}
-        <Stack spacing={2} align="stretch">
+        <Stack spacing={3} align="stretch">
           <Box display="flex" alignItems="center" pl={2}>
             <Text color="gray.400" fontSize="sm" fontWeight="medium" mr={2}>Suggested Agents</Text>
             <IconButton
               aria-label="Refresh Suggested Agents"
-              icon={<FiRefreshCw />}
+              icon={refreshLoading ? <Spinner size="xs" /> : <FiRefreshCw />}
               size="xs"
               variant="ghost"
               color="gray.400"
               _hover={{ color: 'white', bg: 'whiteAlpha.200' }}
               onClick={handleRefreshMockAgent}
               ml={1}
+              isDisabled={refreshLoading}
             />
           </Box>
           {agentSuggestions.length === 0 ? (
@@ -138,7 +148,9 @@ function Sidebar() {
                 onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
                 pl={2}
               >
-                {agent.title || agent.name || agent.id || 'Unknown Agent'}
+                <Box textAlign="left" wordBreak="break-word" whiteSpace="normal">
+                  {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
+                </Box>
               </Button>
             ))
           )}
