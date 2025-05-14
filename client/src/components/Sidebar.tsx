@@ -1,14 +1,29 @@
 import { Box, Stack, Text, Button, Badge, Icon, Image, Menu, MenuButton, MenuList, MenuItem, IconButton } from '@chakra-ui/react';
-import { FiMail, FiZap, FiCloudLightning, FiSearch, FiSettings } from 'react-icons/fi';
+import { FiMail, FiZap, FiCloudLightning, FiSearch, FiSettings, FiRefreshCw } from 'react-icons/fi';
 import { FaBrain } from 'react-icons/fa';
 import { GiBrain } from 'react-icons/gi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppState } from '../state/AppStateContext';
+import axios from 'axios';
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { resetDemo, actions, connections, agentsActive, agentSuggestions } = useAppState();
+  const { resetDemo, actions, connections, agentsActive, agentSuggestions, setAgentSuggestions } = useAppState();
+
+  // Handler to fetch and add a mock agent
+  const handleRefreshMockAgent = async () => {
+    try {
+      const res = await axios.get('/api/mock-agent');
+      console.log('Fetched mock agent:', res.data);
+      const updatedSuggestions = [res.data, ...agentSuggestions];
+      setAgentSuggestions(updatedSuggestions);
+      console.log('Updated agentSuggestions:', updatedSuggestions);
+    } catch (err) {
+      // Optionally handle error
+      console.error('Failed to fetch mock agent', err);
+    }
+  };
 
   return (
     <Box w="64" bg="gray.800" p={4} borderRight="1px" borderColor="gray.700">
@@ -96,7 +111,19 @@ function Sidebar() {
         </Stack>
         {/* Suggested Agents Section */}
         <Stack spacing={2} align="stretch">
-          <Text color="gray.400" fontSize="sm" fontWeight="medium" pl={2}>Suggested Agents</Text>
+          <Box display="flex" alignItems="center" pl={2}>
+            <Text color="gray.400" fontSize="sm" fontWeight="medium" mr={2}>Suggested Agents</Text>
+            <IconButton
+              aria-label="Refresh Suggested Agents"
+              icon={<FiRefreshCw />}
+              size="xs"
+              variant="ghost"
+              color="gray.400"
+              _hover={{ color: 'white', bg: 'whiteAlpha.200' }}
+              onClick={handleRefreshMockAgent}
+              ml={1}
+            />
+          </Box>
           {agentSuggestions.length === 0 ? (
             <Text color="gray.500" fontSize="sm" pl={4}>None</Text>
           ) : (
@@ -111,7 +138,7 @@ function Sidebar() {
                 onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
                 pl={2}
               >
-                {agent.title || agent.id || 'Unknown Agent'}
+                {agent.title || agent.name || agent.id || 'Unknown Agent'}
               </Button>
             ))
           )}

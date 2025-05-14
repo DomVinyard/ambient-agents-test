@@ -1,5 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import useLocalStorage from 'use-local-storage';
+import { resetSessionId } from './session';
 
 export type AppState = {
   actions: any[];
@@ -39,6 +40,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setAgentSuggestions([]);
     setSettings({});
     localStorage.clear();
+    resetSessionId();
     window.location.reload();
   };
 

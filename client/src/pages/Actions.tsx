@@ -1,17 +1,51 @@
 import { Box, Heading, Text, Stack } from '@chakra-ui/react';
 import { useAppState } from '../state/AppStateContext';
 import ActionCard, { ActionItem } from '../components/ActionCard';
+import { useEffect } from 'react';
 
 function Actions() {
-  const { actions } = useAppState();
+  const { actions, setActions, connections, setConnections } = useAppState();
   const firstAction = actions[0];
+
+  // On mount, check for gmail=success in query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail') === 'success') {
+      let tokens = undefined;
+      if (params.get('tokens')) {
+        try {
+          tokens = JSON.parse(decodeURIComponent(params.get('tokens')!));
+        } catch (e) {
+          tokens = undefined;
+        }
+      }
+      setConnections([
+        ...connections,
+        {
+          id: 'gmail',
+          name: 'Gmail',
+          connection_details: { type: 'email', connected: true, tokens },
+          raw_data: [],
+          processed_data: null
+        }
+      ]);
+      setActions(actions.slice(1));
+      // Clean up the URL
+      params.delete('gmail');
+      params.delete('tokens');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const handleRespond = (response: any) => {
     if (firstAction && firstAction.action) {
-      if (firstAction.action.type === 'connection' && firstAction.action.service === 'gmail') {
-        // Here you would trigger Gmail OAuth and processing
-        console.log('Trigger Gmail OAuth and process data');
-        // TODO: Implement actual OAuth and data processing
+      if (
+        firstAction.action.type === 'connection' &&
+        firstAction.action.service === 'gmail' &&
+        response === 'yes'
+      ) {
+        // Redirect to Gmail OAuth in the same tab (backend URL)
+        window.location.href = 'http://localhost:3001/auth/gmail';
         return;
       }
     }
