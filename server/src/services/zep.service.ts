@@ -48,7 +48,7 @@ export class ZepService {
       query,
       userId,
       limit,
-      reranker: 'cross_encoder'
+      reranker: 'rrf'
     });
   }
 

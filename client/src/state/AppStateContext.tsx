@@ -2,15 +2,30 @@ import React, { createContext, useContext } from 'react';
 import useLocalStorage from 'use-local-storage';
 import { resetSessionId } from './session';
 
+export interface Agent {
+  id: string;
+  name?: string;
+  Name?: string;
+  title?: string;
+  description?: string;
+  trigger?: string;
+  prompt?: string;
+  human_loop?: string;
+  tools?: any[];
+  justification?: string;
+  daily_cost?: number;
+  status?: 'suggested' | 'approved' | 'rejected';
+}
+
 export type AppState = {
   actions: any[];
   setActions: (actions: any[]) => void;
   connections: any[];
   setConnections: (connections: any[]) => void;
-  agentsActive: any[];
-  setAgentsActive: (agents: any[]) => void;
-  agentSuggestions: any[];
-  setAgentSuggestions: (agents: any[]) => void;
+  agentsActive: Agent[];
+  setAgentsActive: (agents: Agent[]) => void;
+  agentSuggestions: Agent[];
+  setAgentSuggestions: (agents: Agent[]) => void;
   settings: Record<string, any>;
   setSettings: (settings: Record<string, any>) => void;
   resetDemo: () => void;
@@ -29,8 +44,8 @@ const DEFAULT_ACTIONS = [
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [actions, setActions] = useLocalStorage<any[]>('actions', DEFAULT_ACTIONS);
   const [connections, setConnections] = useLocalStorage<any[]>('connections', []);
-  const [agentsActive, setAgentsActive] = useLocalStorage<any[]>('agentsActive', []);
-  const [agentSuggestions, setAgentSuggestions] = useLocalStorage<any[]>('agentSuggestions', []);
+  const [agentsActive, setAgentsActive] = useLocalStorage<Agent[]>('agentsActive', []);
+  const [agentSuggestions, setAgentSuggestions] = useLocalStorage<Agent[]>('agentSuggestions', []);
   const [settings, setSettings] = useLocalStorage<Record<string, any>>('settings', {});
 
   const resetDemo = () => {

@@ -233,7 +233,6 @@ app.post('/api/zep/query', async (req, res) => {
 app.post('/api/mock-agent', async (req, res) => {
   const sessionId = getSessionId(req);
   try {
-    const episodes = await zepService.getEpisodesByUserId(sessionId);
     let userEmail = sessionId;
     
     try {
@@ -245,7 +244,7 @@ app.post('/api/mock-agent', async (req, res) => {
       // If user not found, fallback to sessionId
     }
 
-    const wordwareData = await wordwareService.suggestAgents(episodes as any[], userEmail);
+    const wordwareData = await wordwareService.suggestAgents(sessionId, userEmail);
     const suggestions = wordwareData?.data?.attributes?.outputs?.['Suggested Agents']?.suggested || [];
 
     res.json(suggestions);
