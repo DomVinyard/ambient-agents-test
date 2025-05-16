@@ -35,7 +35,17 @@ function Sidebar() {
   };
 
   return (
-    <Box w="76.8" bg="gray.800" p={4} borderRight="1px" borderColor="gray.700">
+    <Box 
+      w="350px" 
+      bg="gray.800" 
+      p={4} 
+      borderRight="1px" 
+      borderColor="gray.700"
+      flexShrink={0}
+      overflowX="hidden"
+      overflowY="auto"
+      maxH="100vh"
+    >
       <Stack spacing={6} align="stretch">
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
           <Image src="/logo.png" alt="Logo" maxW="100px" objectFit="contain" />
@@ -102,20 +112,31 @@ function Sidebar() {
           {agentsActive.length === 0 ? (
             <Text color="gray.500" fontSize="sm" pl={4}>None</Text>
           ) : (
-            agentsActive.map((agent, idx) => (
-              <Button
-                key={agent.id || agent.title || idx}
-                variant="ghost"
-                colorScheme="whiteAlpha"
-                color="white"
-                justifyContent="flex-start"
-                leftIcon={<Icon as={FiZap} />}
-                onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
-                pl={2}
-              >
-                {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
-              </Button>
-            ))
+            agentsActive.map((agent, idx) => {
+              const isSelected = location.pathname === `/agent/${agent.id || agent.title || 'unknown'}`;
+              return (
+                <Box
+                  key={agent.id || agent.title || idx}
+                  border="1px"
+                  borderColor={isSelected ? "blue.400" : "gray.600"}
+                  borderRadius="md"
+                  p={2}
+                  cursor="pointer"
+                  onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
+                  _hover={{ bg: 'whiteAlpha.100' }}
+                  bg={isSelected ? "whiteAlpha.100" : "transparent"}
+                >
+                  <Text color="white" fontWeight="medium" fontSize="sm" noOfLines={1} mb={1}>
+                    {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
+                  </Text>
+                  {agent.description && (
+                    <Text color="gray.400" fontSize="xs" noOfLines={2}>
+                      {agent.description}
+                    </Text>
+                  )}
+                </Box>
+              );
+            })
           )}
         </Stack>
         {/* Suggested Agents Section */}
@@ -137,22 +158,31 @@ function Sidebar() {
           {agentSuggestions.length === 0 ? (
             <Text color="gray.500" fontSize="sm" pl={4}>None</Text>
           ) : (
-            agentSuggestions.map((agent, idx) => (
-              <Button
-                key={agent.id || agent.title || idx}
-                variant="ghost"
-                colorScheme="whiteAlpha"
-                color="white"
-                justifyContent="flex-start"
-                leftIcon={<Icon as={FiCloudLightning} />}
-                onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
-                pl={2}
-              >
-                <Box textAlign="left" wordBreak="break-word" whiteSpace="normal">
-                  {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
+            agentSuggestions.map((agent, idx) => {
+              const isSelected = location.pathname === `/agent/${agent.id || agent.title || 'unknown'}`;
+              return (
+                <Box
+                  key={agent.id || agent.title || idx}
+                  border="1px"
+                  borderColor={isSelected ? "blue.400" : "gray.600"}
+                  borderRadius="md"
+                  p={2}
+                  cursor="pointer"
+                  onClick={() => navigate(`/agent/${agent.id || agent.title || 'unknown'}`)}
+                  _hover={{ bg: 'whiteAlpha.100' }}
+                  bg={isSelected ? "whiteAlpha.100" : "transparent"}
+                >
+                  <Text color="white" fontWeight="medium" fontSize="sm" noOfLines={1} mb={1}>
+                    {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
+                  </Text>
+                  {agent.justification && (
+                    <Text color="gray.400" fontSize="xs" noOfLines={2}>
+                      {agent.justification}
+                    </Text>
+                  )}
                 </Box>
-              </Button>
-            ))
+              );
+            })
           )}
         </Stack>
       </Stack>

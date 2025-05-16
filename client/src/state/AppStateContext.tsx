@@ -15,6 +15,8 @@ export interface Agent {
   justification?: string;
   daily_cost?: number;
   status?: 'suggested' | 'approved' | 'rejected';
+  memory?: string;
+  initial_message?: string;
 }
 
 export type AppState = {

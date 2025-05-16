@@ -19,12 +19,6 @@ interface WordwareResponse {
   };
 }
 
-interface GraphEdge {
-  fact: string;
-  name?: string;
-  createdAt?: string;
-}
-
 export class WordwareService {
   private readonly API_KEY: string;
   private readonly APP_IDS = {
@@ -129,96 +123,11 @@ export class WordwareService {
     }
   }
 
-  private async gatherUserContext(userId: string): Promise<any> {
-    // Search for user's patterns, preferences, and behaviors
-    const patterns = await this.zepService.searchGraph(
-      "Find patterns in user's behavior, preferences, and recurring tasks",
-      userId,
-      20
-    );
-
-    // Search for user's relationships and interactions
-    const relationships = await this.zepService.searchGraph(
-      "Find information about user's relationships, contacts, and frequent interactions",
-      userId,
-      20
-    );
-
-    // Search for user's work context and responsibilities
-    const workContext = await this.zepService.searchGraph(
-      "Find information about user's work context, responsibilities, and professional activities",
-      userId,
-      20
-    );
-
-    // Search for user's communication patterns
-    const communicationPatterns = await this.zepService.searchGraph(
-      "Find patterns in how the user communicates, their email habits, and response times",
-      userId,
-      20
-    );
-
-    // Search for user's scheduling and time management
-    const schedulingPatterns = await this.zepService.searchGraph(
-      "Find information about user's scheduling patterns, meeting frequency, and time management",
-      userId,
-      20
-    );
-
-    // Search for user's project and task management
-    const projectContext = await this.zepService.searchGraph(
-      "Find information about user's projects, tasks, deadlines, and work priorities",
-      userId,
-      20
-    );
-
-    // Search for user's information management
-    const informationManagement = await this.zepService.searchGraph(
-      "Find patterns in how user organizes information, files, and documents",
-      userId,
-      20
-    );
-
-    // Search for user's decision making patterns
-    const decisionPatterns = await this.zepService.searchGraph(
-      "Find patterns in user's decision making, approvals, and review processes",
-      userId,
-      20
-    );
-
-    // Search for user's collaboration patterns
-    const collaborationPatterns = await this.zepService.searchGraph(
-      "Find information about user's team collaboration, shared responsibilities, and group dynamics",
-      userId,
-      20
-    );
-
-    // Search for user's automation opportunities
-    const automationOpportunities = await this.zepService.searchGraph(
-      "Find repetitive tasks, manual processes, and potential automation opportunities",
-      userId,
-      20
-    );
-
-    return {
-      patterns: patterns.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      relationships: relationships.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      workContext: workContext.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      communicationPatterns: communicationPatterns.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      schedulingPatterns: schedulingPatterns.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      projectContext: projectContext.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      informationManagement: informationManagement.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      decisionPatterns: decisionPatterns.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      collaborationPatterns: collaborationPatterns.edges?.map((edge: GraphEdge) => edge.fact) || [],
-      automationOpportunities: automationOpportunities.edges?.map((edge: GraphEdge) => edge.fact) || []
-    };
-  }
-
   async suggestAgents(userId: string, userEmail: string): Promise<WordwareResponse> {
     try {
-      // Gather comprehensive user context from the graph
-      const userContext = await this.gatherUserContext(userId);
-      console.log('userContext', userContext);
+      // Gather comprehensive user context using the new comprehensive approach
+      const userProfile = await this.zepService.buildUserProfile(userId);
+      console.log('userProfile', userProfile);
 
       const response = await fetch(this.getAppUrl(this.APP_IDS.SUGGEST_AGENT), {
         method: 'POST',
@@ -231,7 +140,7 @@ export class WordwareService {
             type: 'runs',
             attributes: {
               inputs: {
-                Episodes: JSON.stringify(userContext),
+                Episodes: JSON.stringify(userProfile),
                 User: userEmail,
           },
               webhooks: [],

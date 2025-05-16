@@ -19,10 +19,10 @@ function App() {
   }, [location.pathname, navigate]);
 
   return (
-    <Flex minH="100vh" w="100vw" bg="gray.900">
+    <Flex minH="100vh" w="100vw" bg="gray.900" overflow="hidden">
       <PusherReceiver />
       <Sidebar />
-      <Box flex="1" p={6}>
+      <Box flex="1" p={6} overflowY="auto" maxH="100vh">
         <Routes>
           <Route path="/actions" element={<Actions />} />
           <Route path="/memory" element={<Memory />} />

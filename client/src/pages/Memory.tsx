@@ -8,6 +8,7 @@ interface Memory {
     source: string;
     timestamp: string;
     score: number;
+    validAt?: string;
   };
   relevance: number;
 }
@@ -116,8 +117,7 @@ function Memory() {
                   <Text color="white" fontWeight="bold">Memory:</Text>
                   <Text color="gray.200" mb={2}>{memory.content}</Text>
                   <Text color="gray.400" fontSize="sm">Source: {memory.metadata.source}</Text>
-                  <Text color="gray.400" fontSize="sm">Date: {new Date(Number(memory.metadata.timestamp)).toLocaleString()}</Text>
-                  <Text color="gray.400" fontSize="sm">Relevance: {(memory.relevance * 100).toFixed(1)}%</Text>
+                  <Text color="gray.400" fontSize="sm">Date: {memory.metadata.validAt ? new Date(memory.metadata.validAt).toLocaleString() : 'Unknown'}</Text>
                 </Box>
               ))}
             </>
