@@ -14,6 +14,9 @@ interface WordwareResponse {
         'Suggested Agents'?: {
           suggested: any[];
         };
+        Actions?: {
+          actions: any[];
+        };
       };
     };
   };
@@ -24,7 +27,8 @@ export class WordwareService {
   private readonly APP_IDS = {
     PROCESS_MESSAGE: '7ee20900-4421-41e2-8bc7-baad681a0444',
     ANSWER_QUESTION: '1718d875-afd5-4f02-8c33-f5f3efc5a029',
-    SUGGEST_AGENT: 'c279e492-d462-4273-b1f4-183086772bcf'
+    SUGGEST_AGENT: 'c279e492-d462-4273-b1f4-183086772bcf',
+    SIMULATE_ACTIONS: 'd218d869-c20a-44d4-a123-2bf9f0afb0ba'
   };
   private readonly zepService: ZepService;
 
@@ -164,6 +168,54 @@ export class WordwareService {
       return data as WordwareResponse;
     } catch (error) {
       console.error('Error in Wordware suggestAgents:', error);
+      throw error;
+    }
+  }
+
+  async simulateActions(activeAgents: any[]): Promise<WordwareResponse> {
+    try {
+      console.log('Simulating actions with active agents:', activeAgents);
+      
+      // Ensure we have a valid array, even if empty
+      const agents = Array.isArray(activeAgents) ? activeAgents : [];
+      
+      const response = await fetch(this.getAppUrl(this.APP_IDS.SIMULATE_ACTIONS), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.API_KEY}`,
+        },
+        body: JSON.stringify({
+          data: {
+            type: 'runs',
+            attributes: {
+              inputs: {
+                'Active Agents': JSON.stringify(agents)
+              },
+              webhooks: [],
+              await: { timeout: 300 }
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Wordware API error (${response.status}):`, errorText);
+        throw new Error(`Wordware API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid response format from Wordware API');
+      }
+
+      console.log('Received response from Wordware simulateActions:', 
+        (data as WordwareResponse)?.data?.attributes?.outputs?.Actions?.actions || 'No actions returned');
+      
+      return data as WordwareResponse;
+    } catch (error) {
+      console.error('Error in Wordware simulateActions:', error);
       throw error;
     }
   }

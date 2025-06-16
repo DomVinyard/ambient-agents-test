@@ -1,11 +1,10 @@
-import { Box, Heading, Text, Stack } from '@chakra-ui/react';
+import { Box, Heading, Text, Stack, VStack } from '@chakra-ui/react';
 import { useAppState } from '../state/AppStateContext';
 import ActionCard, { ActionItem } from '../components/ActionCard';
 import { useEffect } from 'react';
 
 function Actions() {
   const { actions, setActions, connections, setConnections } = useAppState();
-  const firstAction = actions[0];
 
   // On mount, check for gmail=success in query params
   useEffect(() => {
@@ -37,11 +36,11 @@ function Actions() {
     }
   }, []);
 
-  const handleRespond = (response: any) => {
-    if (firstAction && firstAction.action) {
+  const handleRespond = (action: ActionItem, response: any) => {
+    if (action && action.action) {
       if (
-        firstAction.action.type === 'connection' &&
-        firstAction.action.service === 'gmail' &&
+        action.action.type === 'connection' &&
+        action.action.service === 'gmail' &&
         response === 'yes'
       ) {
         // Redirect to Gmail OAuth in the same tab (backend URL)
@@ -49,15 +48,27 @@ function Actions() {
         return;
       }
     }
-    // For now, just log the response. Later, you can update state or move to next action.
+    
+    // Remove the action that was responded to
+    setActions(actions.filter(a => a.id !== action.id));
+    
+    // For now, just log the response. Later, you can update state based on the response.
     console.log('User response:', response);
   };
 
   return (
     <Stack spacing={6}>
       <Heading size="lg" color="white">Actions</Heading>
-      {firstAction ? (
-        <ActionCard action={firstAction as ActionItem} onRespond={handleRespond} />
+      {actions.length > 0 ? (
+        <VStack spacing={4} align="stretch">
+          {actions.map((action, index) => (
+            <ActionCard 
+              key={action.id || index} 
+              action={action as ActionItem} 
+              onRespond={(response) => handleRespond(action, response)} 
+            />
+          ))}
+        </VStack>
       ) : (
         <Box boxShadow="xl" p={6} borderRadius="lg" bg="white">
           <Text color="gray.500">No actions available.</Text>

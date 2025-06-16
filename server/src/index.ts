@@ -254,6 +254,149 @@ app.post('/api/mock-agent', async (req, res) => {
   }
 });
 
+app.post('/api/simulate-actions', async (req, res) => {
+  try {
+    const { activeAgents } = req.body;
+    const sessionId = getSessionId(req);
+    
+    // Check if active agents array exists
+    if (!activeAgents || !Array.isArray(activeAgents)) {
+      console.warn(`Missing or invalid activeAgents array for session ${sessionId}, using empty array`);
+    }
+    
+    // Use an empty array if not provided or invalid
+    const agents = Array.isArray(activeAgents) ? activeAgents : [];
+    console.log(`Simulating actions with ${agents.length} active agents for session: ${sessionId}`);
+    
+    // Call Wordware service
+    const wordwareData = await wordwareService.simulateActions(agents);
+    const actions = wordwareData?.data?.attributes?.outputs?.Actions?.actions || [];
+    
+    console.log(`Received ${actions.length} actions from Wordware for session: ${sessionId}`);
+    
+    // If no actions were returned, create mock actions
+    if (!actions.length) {
+      console.log("No actions returned from Wordware, generating mock actions");
+      
+      // Generate mock actions based on the available agents or default ones if no agents
+      const mockActions = generateMockActions(agents);
+      return res.json(mockActions);
+    }
+    
+    // Send the actions to the client
+    res.json(actions);
+  } catch (err) {
+    console.error('Error simulating actions:', err);
+    
+    // On error, return mock actions as fallback
+    console.log("Error occurred, returning mock actions as fallback");
+    const agents = req.body.activeAgents || [];
+    const mockActions = generateMockActions(agents);
+    return res.json(mockActions);
+  }
+});
+
+// Helper function to generate mock actions
+function generateMockActions(agents: any[]) {
+  const actionTypes = ['simple_confirm', 'decision', 'supply_info', 'edit_info'];
+  const numActions = Math.min(10, Math.max(3, agents.length * 2)); // 3-10 actions based on number of agents
+  
+  return Array.from({ length: numActions }, (_, index) => {
+    const type = actionTypes[Math.floor(Math.random() * actionTypes.length)];
+    const useAgent = agents.length > 0 ? Math.random() > 0.3 : false; // 70% chance to use an agent if available
+    const agent = useAgent ? agents[Math.floor(Math.random() * agents.length)] : null;
+    
+    const action: any = {
+      id: `mock-${Date.now()}-${index}`,
+      type,
+      text: `${agent ? 'Agent ' + (agent.title || agent.name || agent.id) : 'System'} ${actionVerb(type)}`
+    };
+    
+    if (agent) {
+      action.agent_id = agent.id || agent.title || 'unknown';
+    }
+    
+    // Add type-specific properties
+    if (type === 'decision') {
+      action.options = generateOptions(type, agent);
+    } else if (type === 'edit_info') {
+      action.text_to_edit = generateTextToEdit(agent);
+    }
+    
+    return action;
+  });
+}
+
+// Helper to generate a verb based on action type
+function actionVerb(type: string): string {
+  switch (type) {
+    case 'simple_confirm':
+      return `needs confirmation for ${randomItem([
+        'processing an email',
+        'archiving old messages',
+        'setting up a reminder',
+        'creating a task',
+        'configuring a notification'
+      ])}`;
+    case 'decision':
+      return `requests your decision on ${randomItem([
+        'how to categorize emails',
+        'priority level for a task',
+        'scheduling preferences',
+        'notification settings',
+        'handling a recurring event'
+      ])}`;
+    case 'supply_info':
+      return `needs additional information about ${randomItem([
+        'your availability next week',
+        'your preferences for email handling',
+        'details for an upcoming meeting',
+        'how to respond to a specific contact',
+        'your goals for task automation'
+      ])}`;
+    case 'edit_info':
+      return `suggests edits to ${randomItem([
+        'a draft email response',
+        'meeting notes',
+        'a task description',
+        'a contact information entry',
+        'a scheduled reminder'
+      ])}`;
+    default:
+      return 'requires your attention';
+  }
+}
+
+// Helper to generate options for decision type
+function generateOptions(type: string, agent: any): string[] {
+  if (type === 'decision') {
+    if (agent && agent.title && agent.title.includes('Email')) {
+      return ['Archive messages', 'Mark as important', 'Create a filter', 'Ignore future messages'];
+    } else if (agent && agent.title && agent.title.includes('Schedule')) {
+      return ['Morning slot', 'Afternoon slot', 'Evening slot', 'Next business day'];
+    } else {
+      return ['Option A', 'Option B', 'Option C'];
+    }
+  }
+  return [];
+}
+
+// Helper to generate text for edit_info type
+function generateTextToEdit(agent: any): string {
+  if (agent && agent.title && agent.title.includes('Email')) {
+    return `Dear [Contact],\n\nThank you for your message. I've reviewed the information you shared and would like to discuss further.\n\nLet me know if you're available for a quick call tomorrow.\n\nBest regards,\n[Your Name]`;
+  } else if (agent && agent.title && agent.title.includes('Meeting')) {
+    return `Meeting Notes - Project Status\n\n- Completed initial research phase\n- Technical implementation delayed by 2 days\n- Client feedback generally positive\n- Next steps: finalize design by Thursday`;
+  } else {
+    return `This is placeholder text that needs to be edited. Please review and make any necessary changes to improve clarity and accuracy.`;
+  }
+}
+
+// Helper to pick a random item from an array
+function randomItem<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

@@ -210,7 +210,8 @@ export class ZepService {
       query,
       userId,
       limit,
-      reranker: 'rrf'
+      reranker: 'mmr',
+      mmrLambda: 0.9
     });
     
     // console.log({results: JSON.stringify(results)});
@@ -412,7 +413,31 @@ export class ZepService {
       { path: "automationOpportunities.documentGeneration", query: "What documents does the user regularly create" },
       { path: "automationOpportunities.statusReporting", query: "What status reporting does the user regularly do" },
       { path: "automationOpportunities.dataConsolidation", query: "How does the user consolidate data from different sources" },
-      { path: "automationOpportunities.reminderSystems", query: "What reminder systems does the user need" }
+      { path: "automationOpportunities.reminderSystems", query: "What reminder systems does the user need" },
+      
+      // Professional Role Details
+      { path: "professionalIdentity.mainProfession", query: "What is the user's specific profession or job title" },
+      { path: "professionalIdentity.subProfession", query: "What subspecialty or specific focus area within their profession does the user work in" },
+      { path: "professionalIdentity.departmentFunction", query: "What department or functional area does the user work in" },
+      { path: "professionalIdentity.industryVertical", query: "What specific industry vertical or sector does the user work in" },
+      { path: "professionalIdentity.clientTypes", query: "What types of clients or customers does the user work with" },
+      { path: "professionalIdentity.professionalIdentifiers", query: "What professional associations, certifications, or credentials specific to the user's field" },
+      { path: "professionalIdentity.subjectMatterExpertise", query: "What specific subject matter domains is the user considered an expert in" },
+      { path: "professionalIdentity.technicalSpecialties", query: "What technical specialties or technologies is the user proficient with" },
+      { path: "professionalIdentity.methodologies", query: "What methodologies, frameworks, or approaches does the user employ in their work" },
+      { path: "professionalIdentity.professionalJargon", query: "What industry-specific terminology or jargon does the user frequently use" },
+      
+      // Specific Responsibilities
+      { path: "responsibilities.coreTasks", query: "What are the core tasks or activities the user performs regularly in their role" },
+      { path: "responsibilities.deliverables", query: "What specific deliverables or work products does the user create or contribute to" },
+      { path: "responsibilities.businessProcesses", query: "What specific business processes does the user participate in or oversee" },
+      { path: "responsibilities.decisionScopes", query: "What types of decisions is the user authorized to make independently" },
+      { path: "responsibilities.budgetAuthority", query: "What budget responsibility or financial authority does the user have" },
+      { path: "responsibilities.projectTypes", query: "What types of projects does the user typically work on" },
+      { path: "responsibilities.stakeholderGroups", query: "What stakeholder groups does the user regularly interact with" },
+      { path: "responsibilities.crossFunctionalTeams", query: "What cross-functional teams does the user participate in" },
+      { path: "responsibilities.reportingChain", query: "What does the user's reporting structure look like" },
+      { path: "responsibilities.performanceMetrics", query: "How is the user's job performance measured or evaluated" }
     ];
     
     // Create all promises
@@ -466,7 +491,8 @@ export class ZepService {
         const templatePhrases = [
           "indicating that this is the name they use for personal correspondence",
           "uses a personalized email address at the custom domain",
-          "uses a Gmail address for email"
+          "uses a Gmail address for email",
+          "the user is actively addressing this with the estate agent."
         ];
         
         // Filter out template sentences

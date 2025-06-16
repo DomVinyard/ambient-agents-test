@@ -7,12 +7,14 @@ import { useAppState } from '../state/AppStateContext';
 import axios from 'axios';
 import { useState } from 'react';
 import { getOrCreateSessionId } from '../state/session';
+import { ActionItem } from './ActionCard';
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { resetDemo, actions, connections, agentsActive, agentSuggestions, setAgentSuggestions } = useAppState();
+  const { resetDemo, actions, connections, agentsActive, agentSuggestions, setAgentSuggestions, setActions } = useAppState();
   const [refreshLoading, setRefreshLoading] = useState(false);
+  const [actionsLoading, setActionsLoading] = useState(false);
 
   // Handler to fetch and add agent suggestions
   const handleRefreshMockAgent = async () => {
@@ -34,6 +36,102 @@ function Sidebar() {
     }
   };
 
+  // Handler to simulate actions using Wordware
+  const handleSimulateActions = async () => {
+    setActionsLoading(true);
+    try {
+      console.log('Starting simulation with agents:', agentsActive);
+      
+      // Even if there are no active agents, still call the API
+      // The server-side can provide default simulated actions based on the empty array
+      const res = await axios.post('http://localhost:3001/api/simulate-actions', { 
+        activeAgents: agentsActive || [] 
+      });
+      
+      console.log('Response from simulation API:', res.data);
+      
+      // Use the returned actions or fallback to empty array
+      const simulatedActions = Array.isArray(res.data) ? res.data : [];
+      
+      if (simulatedActions.length > 0) {
+        // Process the returned actions to match our expected format
+        console.log('Processing simulated actions returned from Wordware');
+        const formattedActions = simulatedActions.map((action, index) => {
+          return {
+            id: action.id || `simulated-${index}`,
+            type: action.type || 'simple_confirm',
+            text: action.text || action.request || `Simulated action #${index + 1}`,
+            options: action.options || undefined,
+            text_to_edit: action.text_to_edit || undefined,
+            agent_id: action.agent_id || undefined,
+            action: { 
+              type: 'simulation', 
+              target: action.agent_id || `target-${index}` 
+            }
+          } as ActionItem;
+        });
+        
+        console.log('Setting actions from Wordware:', formattedActions);
+        setActions(formattedActions);
+      } else {
+        // Only use fallback if the API returned no actions
+        console.log('No actions returned from Wordware, using fallbacks');
+        const actionTypes = ['simple_confirm', 'decision', 'supply_info', 'edit_info'];
+        const defaultActions = Array.from({ length: 10 }, (_, index) => {
+          const type = actionTypes[Math.floor(Math.random() * actionTypes.length)];
+          const action: Partial<ActionItem> = {
+            id: `simulated-${index}`,
+            type: type as ActionItem['type'],
+            text: `Simulated ${type} action #${index + 1}`,
+            action: { type: 'simulation', target: `target-${index}` }
+          };
+          
+          // Add type-specific properties
+          if (type === 'decision') {
+            action.options = ['Option A', 'Option B', 'Option C'];
+          } else if (type === 'edit_info') {
+            action.text_to_edit = 'This is some example text that needs to be edited. Please make any necessary changes.';
+          }
+          
+          return action as ActionItem;
+        });
+        
+        setActions(defaultActions);
+      }
+      
+      navigate('/actions');
+    } catch (err) {
+      console.error('Failed to fetch simulated actions:', err);
+      
+      // Fallback to random actions on error
+      console.log('Error occurred, using fallback actions');
+      const actionTypes = ['simple_confirm', 'decision', 'supply_info', 'edit_info'];
+      const fallbackActions = Array.from({ length: 10 }, (_, index) => {
+        const type = actionTypes[Math.floor(Math.random() * actionTypes.length)];
+        const action: Partial<ActionItem> = {
+          id: `simulated-${index}`,
+          type: type as ActionItem['type'],
+          text: `Fallback ${type} action #${index + 1}`,
+          action: { type: 'simulation', target: `target-${index}` }
+        };
+        
+        // Add type-specific properties
+        if (type === 'decision') {
+          action.options = ['Option A', 'Option B', 'Option C'];
+        } else if (type === 'edit_info') {
+          action.text_to_edit = 'This is fallback text that needs to be edited. Please make any necessary changes.';
+        }
+        
+        return action as ActionItem;
+      });
+      
+      setActions(fallbackActions);
+      navigate('/actions');
+    } finally {
+      setActionsLoading(false);
+    }
+  };
+
   return (
     <Box 
       w="350px" 
@@ -52,6 +150,13 @@ function Sidebar() {
           <Menu>
             <MenuButton as={IconButton} aria-label="Settings" icon={<FiSettings />} variant="ghost" color="white" _hover={{ bg: 'whiteAlpha.200' }} />
             <MenuList>
+              <MenuItem 
+                onClick={handleSimulateActions} 
+                icon={actionsLoading ? <Spinner size="xs" /> : <FiZap />}
+                isDisabled={actionsLoading}
+              >
+                Simulate Actions
+              </MenuItem>
               <MenuItem onClick={resetDemo} icon={<FiSettings />}>Reset Demo</MenuItem>
             </MenuList>
           </Menu>
@@ -176,7 +281,7 @@ function Sidebar() {
                     {agent.name || agent.Name || agent.title || agent.id || 'Unknown Agent'}
                   </Text>
                   {agent.justification && (
-                    <Text color="gray.400" fontSize="xs" noOfLines={2}>
+                    <Text color="gray.400" fontSize="xs" noOfLines={3}>
                       {agent.justification}
                     </Text>
                   )}
