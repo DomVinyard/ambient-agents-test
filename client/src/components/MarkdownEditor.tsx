@@ -1,14 +1,8 @@
-import { Box, Text, Flex } from '@chakra-ui/react';
+import { Box, Text } from '@chakra-ui/react';
 import MDEditor from '@uiw/react-md-editor';
 import { useState, useEffect } from 'react';
-import { Edit, Eye } from 'lucide-react';
-
-interface FileItem {
-  name: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { Edit } from 'lucide-react';
+import { FileItem } from '../types';
 
 interface MarkdownEditorProps {
   file: FileItem | null;
@@ -18,6 +12,7 @@ interface MarkdownEditorProps {
 export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (file) {
@@ -33,17 +28,20 @@ export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
 
   const handleSave = () => {
     if (file && hasChanges) {
+      setIsSaving(true);
       onSave(file.name, content);
       setHasChanges(false);
+      // Show saving feedback briefly
+      setTimeout(() => setIsSaving(false), 500);
     }
   };
 
-  // Auto-save after 2 seconds of no changes
+  // Auto-save after 500ms of no changes (more immediate)
   useEffect(() => {
     if (hasChanges && file) {
       const timer = setTimeout(() => {
         handleSave();
-      }, 2000);
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [content, hasChanges, file]);
@@ -72,37 +70,14 @@ export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
 
   return (
     <Box flex="1" bg="white" position="relative">
-      <Flex 
-        align="center" 
-        justify="space-between" 
-        px={4} 
-        py={2} 
-        borderBottom="1px solid"
-        borderColor="gray.200"
-        bg="gray.50"
-      >
-        <Flex align="center">
-          <Edit size={16} color="#4A5568" />
-          <Text ml={2} fontWeight="semibold" color="gray.700">
-            {file.name}
-          </Text>
-        </Flex>
-        
-        {hasChanges && (
-          <Text fontSize="xs" color="blue.500">
-            Autosaving...
-          </Text>
-        )}
-      </Flex>
-      
-      <Box h="calc(100% - 60px)" p={4}>
+      <Box h="100%" p={4} overflow="hidden">
         <MDEditor
           value={content}
           onChange={handleContentChange}
           preview="edit"
-          hideToolbar={false}
+          hideToolbar={true}
           data-color-mode="light"
-          height="100%"
+          height="calc(100vh - 140px)"
         />
       </Box>
       
@@ -111,9 +86,9 @@ export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
         bottom={4} 
         right={4}
         fontSize="xs" 
-        color="gray.400"
+        color={isSaving ? "blue.500" : hasChanges ? "orange.500" : "gray.400"}
       >
-        Last updated: {new Date(file.updatedAt).toLocaleString()}
+        {isSaving ? "Saving..." : hasChanges ? "Unsaved changes" : `Last updated: ${new Date(file.updatedAt).toLocaleString()}`}
       </Box>
     </Box>
   );

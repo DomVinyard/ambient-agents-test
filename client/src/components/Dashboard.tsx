@@ -1,170 +1,335 @@
-import { Box, Flex, useToast } from '@chakra-ui/react';
+import { 
+  Box, 
+  Flex, 
+  useToast
+} from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import Toolbar from './Toolbar';
-import FileExplorer from './FileExplorer';
-import MarkdownEditor from './MarkdownEditor';
+import EmailList from './EmailList';
+import EmailViewer from './EmailViewer';
+import InsightsViewer from './InsightsViewer';
+import FileList from './FileList';
+import FileEditor from './FileEditor';
 import { PusherReceiver } from './PusherReceiver';
+import { useFileManager } from '../hooks/useFileManager';
+import { Email, Insight } from '../types';
 import axios from 'axios';
-
-interface FileItem {
-  name: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const STORAGE_KEY = 'ambient-agents-files';
 
 interface DashboardProps {
   onLogout: () => void;
 }
 
 export default function Dashboard({ onLogout }: DashboardProps) {
-  const [files, setFiles] = useState<Record<string, FileItem>>({});
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const [status, setStatus] = useState<string>('');
-  const toast = useToast();
+  const [emails, setEmails] = useState<Email[]>([]);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [insightsByEmail, setInsightsByEmail] = useState<Record<string, Insight[]>>({});
+  const [userInfo, setUserInfo] = useState<{ email: string; firstName: string; lastName: string } | null>(null);
+  
+  // Loading states
+  const [fetchingEmails, setFetchingEmails] = useState(false);
+  const [extractingInsights, setExtractingInsights] = useState(false);
+  const [applyingToBio, setApplyingToBio] = useState(false);
+  
+  // Error states
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [insightError, setInsightError] = useState<string | null>(null);
+  const [bioError, setBioError] = useState<string | null>(null);
 
-  // Load files from localStorage on mount
+  const toast = useToast();
+  
+  // Load emails and insights from localStorage on mount
   useEffect(() => {
-    const savedFiles = localStorage.getItem(STORAGE_KEY);
-    console.log('Loading files from localStorage:', savedFiles ? 'Found data' : 'No data');
-    
-    if (savedFiles) {
-      try {
-        const parsedFiles = JSON.parse(savedFiles);
-        console.log('Parsed files:', Object.keys(parsedFiles));
-        setFiles(parsedFiles);
-        // Auto-select the first file if any exist
-        const fileNames = Object.keys(parsedFiles);
-        if (fileNames.length > 0) {
-          setSelectedFile(fileNames[0]);
-        }
-      } catch (error) {
-        console.error('Error loading files from localStorage:', error);
+    try {
+      const storedEmails = localStorage.getItem('ambient-agents-emails');
+      const storedUserInfo = localStorage.getItem('ambient-agents-userinfo');
+      const storedInsights = localStorage.getItem('ambient-agents-insights');
+      
+      if (storedEmails) {
+        const emails = JSON.parse(storedEmails);
+        setEmails(emails);
       }
+      
+      if (storedUserInfo) {
+        const userInfo = JSON.parse(storedUserInfo);
+        setUserInfo(userInfo);
+      }
+      
+      if (storedInsights) {
+        const insights = JSON.parse(storedInsights);
+        setInsightsByEmail(insights);
+      }
+    } catch (error) {
+      console.error('Error loading data from localStorage:', error);
+      // Clear corrupted data
+      localStorage.removeItem('ambient-agents-emails');
+      localStorage.removeItem('ambient-agents-userinfo');
+      localStorage.removeItem('ambient-agents-insights');
     }
-    setHasLoadedFromStorage(true);
   }, []);
 
-  // Save files to localStorage whenever files change (but not on initial load)
+  // Update current insights when selectedEmailId changes
   useEffect(() => {
-    if (hasLoadedFromStorage) {
-      console.log('Saving files to localStorage:', Object.keys(files));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+    if (selectedEmailId && insightsByEmail[selectedEmailId]) {
+      setInsights(insightsByEmail[selectedEmailId]);
+    } else {
+      setInsights([]);
     }
-  }, [files, hasLoadedFromStorage]);
+  }, [selectedEmailId, insightsByEmail]);
+  
+  // File management for bio
+  const {
+    files,
+    selectedFileItem,
+    handleSaveFile,
+    createOrUpdateFile,
+    handleFileSelect,
+    handleDeleteFile,
+    clearAllFiles
+  } = useFileManager();
 
-  const createOrUpdateFile = (fileName: string, content: string) => {
-    const now = new Date().toISOString();
-    const existingFile = files[fileName];
+  // No need for specific bio file - using category-based files now
+
+  const selectedEmail = selectedEmailId ? emails.find(e => e.id === selectedEmailId) || null : null;
+
+  const getAuthTokens = () => {
+    const authData = localStorage.getItem('ambient-agents-auth');
+    if (!authData) {
+      throw new Error('Not authenticated');
+    }
     
-    const fileItem: FileItem = {
-      name: fileName,
-      content,
-      createdAt: existingFile?.createdAt || now,
-      updatedAt: now
-    };
-
-    setFiles(prev => ({
-      ...prev,
-      [fileName]: fileItem
-    }));
-
-    // Auto-select the new/updated file
-    setSelectedFile(fileName);
-  };
-
-  const handleFileSelect = (fileName: string) => {
-    setSelectedFile(fileName);
-  };
-
-  const handleDeleteFile = (fileName: string) => {
-    setFiles(prev => {
-      const newFiles = { ...prev };
-      delete newFiles[fileName];
-      return newFiles;
-    });
-
-    // If we deleted the selected file, select another one or none
-    if (selectedFile === fileName) {
-      const remainingFiles = Object.keys(files).filter(name => name !== fileName);
-      setSelectedFile(remainingFiles.length > 0 ? remainingFiles[0] : null);
+    const { tokens: tokenString } = JSON.parse(authData);
+    if (!tokenString) {
+      throw new Error('No tokens found');
     }
-
-    toast({
-      title: 'File deleted',
-      description: `${fileName} has been deleted.`,
-      status: 'info',
-      duration: 2000,
-      isClosable: true,
-    });
+    
+    return typeof tokenString === 'string' ? JSON.parse(decodeURIComponent(tokenString)) : tokenString;
   };
 
-  const handleSaveFile = (fileName: string, content: string) => {
-    createOrUpdateFile(fileName, content);
-    toast({
-      title: 'File saved',
-      description: `${fileName} has been saved successfully.`,
-      status: 'success',
-      duration: 2000,
-      isClosable: true,
-    });
-  };
-
-  const handleCreateBasicProfile = async () => {
-    setIsLoading(true);
+  const handleFetchEmails = async () => {
+    setFetchingEmails(true);
+    setEmailError(null);
+    
+    // Clear current emails and selected state when refetching
+    setEmails([]);
+    setSelectedEmailId(null);
+    setInsights([]);
+    setInsightsByEmail({});
+    setInsightError(null);
+    
+    // Clear insights from localStorage
+    localStorage.removeItem('ambient-agents-insights');
+    
     try {
-      // Get tokens from localStorage
-      const authData = localStorage.getItem('ambient-agents-auth');
-      if (!authData) {
-        throw new Error('Not authenticated');
-      }
+      const tokens = getAuthTokens();
       
-      const { tokens: tokenString } = JSON.parse(authData);
-      if (!tokenString) {
-        throw new Error('No tokens found');
-      }
-      
-      // Parse the tokens if they're still a string (from URL encoding)
-      const tokens = typeof tokenString === 'string' ? JSON.parse(decodeURIComponent(tokenString)) : tokenString;
-
-      // Call the API to get recent emails and create profile
-      const response = await axios.post('http://localhost:3001/api/gmail/basic-profile', {
+      const response = await axios.post('http://localhost:3001/api/gmail/fetch-emails', {
         tokens,
-        sessionId: 'default' // Using default session for now
+        sessionId: 'default'
       });
 
-      const profileContent = response.data.profileContent;
+      const newEmails = response.data.emails;
+      setEmails(newEmails);
+      setUserInfo(response.data.userInfo);
       
-      // Create the profile.md file
-      createOrUpdateFile('profile.md', profileContent);
+      // Store emails in localStorage
+      localStorage.setItem('ambient-agents-emails', JSON.stringify(newEmails));
+      localStorage.setItem('ambient-agents-userinfo', JSON.stringify(response.data.userInfo));
       
       toast({
-        title: 'Basic Profile Created',
-        description: 'Your profile has been generated from recent emails.',
+        title: 'Emails Fetched',
+        description: `Loaded ${newEmails.length} recent emails.`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
       
     } catch (error) {
-      console.error('Error creating basic profile:', error);
+      console.error('Error fetching emails:', error);
+      setEmailError('Failed to fetch emails. Please try again.');
       toast({
         title: 'Error',
-        description: 'Failed to create basic profile. Please try again.',
+        description: 'Failed to fetch emails. Please try again.',
         status: 'error',
         duration: 3000,
         isClosable: true,
       });
     } finally {
-      setIsLoading(false);
+      setFetchingEmails(false);
     }
   };
 
-  const selectedFileItem = selectedFile ? files[selectedFile] : null;
+  const handleExtractInsights = async () => {
+    if (!selectedEmailId) return;
+    
+    setExtractingInsights(true);
+    setInsightError(null);
+    
+    // Clear previous insights when reextracting
+    if (insightsByEmail[selectedEmailId]) {
+      setInsights([]);
+      const clearedInsights = { ...insightsByEmail };
+      delete clearedInsights[selectedEmailId];
+      setInsightsByEmail(clearedInsights);
+      localStorage.setItem('ambient-agents-insights', JSON.stringify(clearedInsights));
+    }
+    
+    try {
+      const tokens = getAuthTokens();
+      
+      const response = await axios.post('http://localhost:3001/api/gmail/extract-insights', {
+        tokens,
+        emailId: selectedEmailId,
+        emailData: selectedEmail,
+        sessionId: 'default'
+      });
+
+      const newInsights = response.data.insights;
+      
+      // Update insights for this specific email
+      const updatedInsightsByEmail = {
+        ...insightsByEmail,
+        [selectedEmailId]: newInsights
+      };
+      setInsightsByEmail(updatedInsightsByEmail);
+      setInsights(newInsights);
+      
+      // Store insights in localStorage
+      localStorage.setItem('ambient-agents-insights', JSON.stringify(updatedInsightsByEmail));
+      
+      toast({
+        title: 'Insights Extracted',
+        description: `Found ${newInsights.length} insights from this email.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+    } catch (error) {
+      console.error('Error extracting insights:', error);
+      setInsightError('Failed to extract insights. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to extract insights. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setExtractingInsights(false);
+    }
+  };
+
+  const handleApplyToBio = async () => {
+    if (insights.length === 0 || !userInfo) return;
+    
+    setApplyingToBio(true);
+    setBioError(null);
+    
+    try {
+      // Group insights by category
+      const insightsByCategory = insights.reduce((acc, insight) => {
+        if (!acc[insight.category]) {
+          acc[insight.category] = [];
+        }
+        acc[insight.category].push(insight);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      const tokens = getAuthTokens();
+      
+      // Process each category with AI blending
+      for (const [category, categoryInsights] of Object.entries(insightsByCategory)) {
+        const fileName = `${category}.md`;
+        const existingFile = files[fileName];
+        
+        // Send to AI service for intelligent blending
+        const response = await axios.post('http://localhost:3001/api/ai/blend-profile', {
+          tokens,
+          category,
+          newInsights: categoryInsights,
+          existingContent: existingFile?.content || null,
+          userInfo,
+          sessionId: 'default'
+        });
+        
+        const blendedContent = response.data.content;
+        createOrUpdateFile(fileName, blendedContent);
+      }
+      
+      toast({
+        title: 'Applied to Bio',
+        description: `Intelligently updated ${Object.keys(insightsByCategory).length} category file(s) using AI.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+    } catch (error) {
+      console.error('Error applying to bio:', error);
+      setBioError('Failed to apply insights to bio. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to apply insights to bio. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setApplyingToBio(false);
+    }
+  };
+
+  const handleCloseEmail = () => {
+    setSelectedEmailId(null);
+    setInsights([]);
+    setInsightError(null);
+    setExtractingInsights(false);
+  };
+
+  const handleDeleteAllFiles = () => {
+    if (window.confirm('Are you sure you want to delete all profile files? This action cannot be undone.')) {
+      clearAllFiles();
+      toast({
+        title: 'Files Deleted',
+        description: 'All profile files have been deleted.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleDeleteAllData = () => {
+    if (window.confirm('Are you sure you want to delete all bio and email data? This action cannot be undone.')) {
+      // Clear localStorage
+      localStorage.removeItem('ambient-agents-emails');
+      localStorage.removeItem('ambient-agents-userinfo');
+      localStorage.removeItem('ambient-agents-files');
+      localStorage.removeItem('ambient-agents-insights');
+      
+      // Reset all state
+      setEmails([]);
+      setSelectedEmailId(null);
+      setInsights([]);
+      setInsightsByEmail({});
+      setUserInfo(null);
+      setEmailError(null);
+      setInsightError(null);
+      setBioError(null);
+      
+      toast({
+        title: 'Data Deleted',
+        description: 'All bio and email data has been cleared.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+
 
   return (
     <Box h="100vh" bg="gray.50">
@@ -174,24 +339,72 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       />
       
       <Toolbar 
-        onCreateBasicProfile={handleCreateBasicProfile}
         onLogout={onLogout}
-        isLoading={isLoading}
+        onDeleteAllData={handleDeleteAllData}
         status={status}
       />
       
-      <Flex h="calc(100vh - 60px)">
-        <FileExplorer
-          selectedFile={selectedFile}
-          onFileSelect={handleFileSelect}
-          onFileDelete={handleDeleteFile}
-          files={files}
-        />
+      <Flex h="calc(100vh - 60px)" w="100%">
+        <Box w="20%" h="100%">
+          <EmailList
+            emails={emails}
+            selectedEmailId={selectedEmailId}
+            onEmailSelect={setSelectedEmailId}
+            onFetchEmails={handleFetchEmails}
+            isLoading={fetchingEmails}
+            error={emailError}
+          />
+        </Box>
         
-        <MarkdownEditor
-          file={selectedFileItem}
-          onSave={handleSaveFile}
-        />
+        {selectedEmail ? (
+          <Box w="20%" h="100%">
+            <EmailViewer
+              email={selectedEmail}
+              onExtractInsights={handleExtractInsights}
+              isLoading={extractingInsights}
+              error={null}
+              onClose={handleCloseEmail}
+              showCloseButton={!(insights.length > 0 || extractingInsights || insightError)}
+              hasInsights={selectedEmailId ? !!insightsByEmail[selectedEmailId] : false}
+            />
+          </Box>
+        ) : (
+          <Box w="20%" h="100%" bg="gray.100" borderRight="1px solid" borderColor="gray.200" />
+        )}
+        
+        {selectedEmail && (insights.length > 0 || extractingInsights || insightError) ? (
+          <Box w="20%" h="100%">
+            <InsightsViewer
+              insights={insights}
+              onApplyToBio={handleApplyToBio}
+              isLoading={applyingToBio}
+              isExtracting={extractingInsights}
+              error={bioError || insightError}
+              onClose={handleCloseEmail}
+            />
+          </Box>
+        ) : (
+          <Box w="20%" h="100%" bg="gray.100" borderRight="1px solid" borderColor="gray.200" />
+        )}
+        
+        <Box w={Object.keys(files).length === 0 ? "40%" : "20%"} h="100%">
+          <FileList
+            files={files}
+            selectedFile={selectedFileItem}
+            onFileSelect={handleFileSelect}
+            onDeleteFile={handleDeleteFile}
+            onDeleteAll={handleDeleteAllFiles}
+          />
+        </Box>
+        
+        {Object.keys(files).length > 0 && (
+          <Box w="20%" h="100%">
+            <FileEditor
+              file={selectedFileItem}
+              onSave={handleSaveFile}
+            />
+          </Box>
+        )}
       </Flex>
     </Box>
   );

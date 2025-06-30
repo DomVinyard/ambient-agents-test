@@ -54,7 +54,43 @@ export function PusherReceiver({ sessionId, onStatusUpdate }: PusherReceiverProp
       console.error('❌ Channel subscription error:', err);
     });
     
-    // Profile generation events
+    // Email fetching events
+    channel.bind('fetch-start', (data: any) => {
+      console.log('Email fetch started:', data);
+      onStatusUpdate('Fetching emails...');
+    });
+
+    channel.bind('fetch-complete', (data: any) => {
+      console.log('Email fetch complete:', data);
+      onStatusUpdate(`✓ Fetched ${data.totalEmails} emails (${data.inboxCount || 0} inbox, ${data.sentCount || 0} sent)`);
+      setTimeout(() => onStatusUpdate(''), 5000);
+    });
+
+    channel.bind('fetch-error', (data: any) => {
+      console.log('Email fetch error:', data);
+      onStatusUpdate('Error fetching emails');
+      setTimeout(() => onStatusUpdate(''), 5000);
+    });
+
+    // Insights extraction events
+    channel.bind('insights-start', (data: any) => {
+      console.log('Insights extraction started:', data);
+      onStatusUpdate('Extracting insights...');
+    });
+
+    channel.bind('insights-complete', (data: any) => {
+      console.log('Insights extraction complete:', data);
+      onStatusUpdate(`✓ Extracted ${data.insightsCount} insights`);
+      setTimeout(() => onStatusUpdate(''), 5000);
+    });
+
+    channel.bind('insights-error', (data: any) => {
+      console.log('Insights extraction error:', data);
+      onStatusUpdate('Error extracting insights');
+      setTimeout(() => onStatusUpdate(''), 5000);
+    });
+
+    // Legacy profile generation events (keep for backwards compatibility)
     channel.bind('profile-start', (data: any) => {
       console.log('Profile generation started:', data);
       onStatusUpdate(`Fetching ${data.total || 10} recent emails...`);

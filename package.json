@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@genkit-ai/dotprompt": "^0.9.12"
+  }
+}

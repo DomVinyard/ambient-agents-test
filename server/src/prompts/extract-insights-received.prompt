@@ -1,0 +1,57 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.3
+response_format:
+  type: json_object
+input:
+  schema:
+    emailContent: string
+output:
+  schema:
+    type: object
+    properties:
+      inferences:
+        type: array
+        items:
+          type: object
+          properties:
+            category:
+              type: string
+              enum: [basic, professional, personal, communication, behavioral, technical, geographic, financial, health, relationships, goals, values]
+              description: "Category type: use 'basic' for fundamental identity info (name, email, core details), 'professional' for work-related insights, 'personal' for family/lifestyle, etc."
+            insight:
+              type: string
+              description: "The specific insight about the user"
+            confidence:
+              type: number
+              minimum: 0
+              maximum: 1
+              description: "Confidence level of this inference"
+            evidence:
+              type: string
+              description: "What in the email supports this inference"
+          required: [category, insight, confidence, evidence]
+    required: [inferences]
+---
+user: |
+  Analyze this RECEIVED email to extract factual insights about the user (the recipient of this email).
+
+  CRITICAL: This is an email the USER RECEIVED. Extract insights about the user based on what others reveal about them, what services contact them, or what context suggests about their life/work.
+
+  Look for evidence about the user such as:
+  • Services, companies, or platforms the user uses (based on who emails them)
+  • The user's industry or profession (based on professional emails received)
+  • The user's interests, shopping behavior, or subscriptions
+  • The user's location or geographic context
+  • Professional relationships and who considers them important to contact
+  • Events, meetings, or opportunities they're invited to
+  • What others assume about the user's role, status, or needs
+  • Personal details others reference about the user
+
+  Email data:
+  {{emailContent}}
+
+  Extract 1-5 insights ONLY about the USER (email recipient) where there is strong evidence. Be conservative - it's better to extract fewer high-quality insights than to make assumptions.
+
+  Return only valid JSON that matches the schema above. 

@@ -1,0 +1,57 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.3
+response_format:
+  type: json_object
+input:
+  schema:
+    emailContent: string
+output:
+  schema:
+    type: object
+    properties:
+      inferences:
+        type: array
+        items:
+          type: object
+          properties:
+            category:
+              type: string
+              enum: [basic, professional, personal, communication, behavioral, technical, geographic, financial, health, relationships, goals, values]
+              description: "Category type: use 'basic' for fundamental identity info (name, email, core details), 'professional' for work-related insights, 'personal' for family/lifestyle, etc."
+            insight:
+              type: string
+              description: "The specific insight about the user"
+            confidence:
+              type: number
+              minimum: 0
+              maximum: 1
+              description: "Confidence level of this inference"
+            evidence:
+              type: string
+              description: "What in the email supports this inference"
+          required: [category, insight, confidence, evidence]
+    required: [inferences]
+---
+user: |
+  Analyze this SENT email to extract factual insights about the user (the author/sender of this email).
+
+  CRITICAL: This is an email the USER WROTE. Extract insights about the user based on their writing style, content, and what they reveal about themselves.
+
+  Look for evidence about the user such as:
+  • The user's job role, responsibilities, projects, or industry (based on what they discuss)
+  • The user's communication style, personality, and tone
+  • The user's expertise, knowledge areas, or technical skills
+  • The user's professional relationships and network
+  • The user's schedule, availability patterns, or work habits
+  • The user's goals, priorities, concerns, or challenges
+  • The user's location, travel, or time zone references
+  • Personal details the user shares about themselves
+
+  Email data:
+  {{emailContent}}
+
+  Extract 1-5 insights ONLY about the USER (email author) where there is strong evidence. Be conservative - it's better to extract fewer high-quality insights than to make assumptions.
+
+  Return only valid JSON that matches the schema above. 

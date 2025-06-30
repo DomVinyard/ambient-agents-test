@@ -9,14 +9,14 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",
-    "@getzep/zep-cloud": "^2.12.2",
-    "@getzep/zep-js": "^2.0.2",
     "ai": "^4.3.16",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "dotprompt": "^1.1.1",
     "express": "^4.18.3",
     "googleapis": "^148.0.0",
     "helmet": "^7.1.0",
+    "json-schema-to-zod": "^2.6.1",
     "node-fetch": "^3.3.2",
     "pusher": "^5.2.0",
     "zod": "^3.25.67"

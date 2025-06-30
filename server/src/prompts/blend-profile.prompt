@@ -1,0 +1,67 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.4
+response_format:
+  type: json_object
+input:
+  schema:
+    category: string
+    newInsights: 
+      type: array
+      items:
+        type: object
+        properties:
+          insight: string
+          confidence: number
+          evidence: string
+    existingContent: 
+      type: [string, null]
+    userInfo:
+      type: object
+      properties:
+        firstName: string
+        lastName: string
+        email: string
+output:
+  schema:
+    type: object
+    properties:
+      content:
+        type: string
+        description: "The blended profile content"
+    required: [content]
+---
+user: |
+  You are an expert profile writer. Your job is to intelligently blend new insights about a user into their existing profile content for the {{category}} category.
+
+  User Information:
+  - Name: {{userInfo.firstName}} {{userInfo.lastName}}
+  - Email: {{userInfo.email}}
+
+  {{#if existingContent}}
+  Existing {{category}} content:
+  {{existingContent}}
+  {{else}}
+  This is a new {{category}} profile section (no existing content).
+  {{/if}}
+
+  New insights to integrate:
+  {{#each newInsights}}
+  - {{insight}} (Confidence: {{confidence}}) 
+    Evidence: {{evidence}}
+  {{/each}}
+
+  Instructions:
+  1. Write flowing, natural prose (not bullet points)
+  2. Integrate new insights seamlessly with existing content
+  3. Resolve conflicts by prioritizing higher confidence insights
+  4. Use confidence-appropriate language:
+     - 90%+: Direct statements ("works at", "specializes in")
+     - 70-89%: Likely statements ("appears to work at", "likely specializes in")
+     - 50-69%: Tentative statements ("may work at", "might specialize in")
+  5. Keep the entire section under 500 words
+  6. Maintain a professional, informative tone
+  7. If no existing content, start from scratch using the insights
+
+  Return only valid JSON with a 'content' field containing the final blended content for the {{category}} section. 

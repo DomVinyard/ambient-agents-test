@@ -4,7 +4,6 @@ import Dashboard from './components/Dashboard';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     // Check localStorage for existing authentication
@@ -12,7 +11,6 @@ function App() {
     if (savedAuth) {
       const authData = JSON.parse(savedAuth);
       setIsAuthenticated(authData.isAuthenticated);
-      setUserEmail(authData.userEmail || '');
     }
 
     // Check URL params for authentication success
@@ -22,11 +20,9 @@ function App() {
     
     if (gmailStatus === 'success' && tokens) {
       setIsAuthenticated(true);
-      setUserEmail('Authenticated User'); // Placeholder
       // Save to localStorage
       localStorage.setItem('ambient-agents-auth', JSON.stringify({
         isAuthenticated: true,
-        userEmail: 'Authenticated User',
         tokens: tokens
       }));
       // Clean up URL
@@ -35,7 +31,6 @@ function App() {
       // Clear any existing auth on error
       localStorage.removeItem('ambient-agents-auth');
       setIsAuthenticated(false);
-      setUserEmail('');
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -48,7 +43,6 @@ function App() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setUserEmail('');
     localStorage.removeItem('ambient-agents-auth');
     localStorage.removeItem('ambient-agents-files'); // Also clear files
   };
@@ -69,7 +63,7 @@ function App() {
     >
       <VStack spacing={8} maxW="md" w="full">
         <Heading size="xl" textAlign="center" color="gray.900">
-          Sauna Profiler
+        Sauna Profile Builder
         </Heading>
         
         <VStack spacing={6}>

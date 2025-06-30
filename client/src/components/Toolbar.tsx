@@ -1,14 +1,13 @@
-import { Button, Box, Flex, Heading, Text, Menu, MenuButton, MenuList, MenuItem, IconButton } from '@chakra-ui/react';
-import { FileUser, MoreVertical, LogOut } from 'lucide-react';
+import { Box, Flex, Heading, Text, Menu, MenuButton, MenuList, MenuItem, IconButton } from '@chakra-ui/react';
+import { MoreVertical, LogOut, Trash2 } from 'lucide-react';
 
 interface ToolbarProps {
-  onCreateBasicProfile: () => void;
   onLogout: () => void;
-  isLoading?: boolean;
+  onDeleteAllData: () => void;
   status?: string;
 }
 
-export default function Toolbar({ onCreateBasicProfile, onLogout, isLoading = false, status = '' }: ToolbarProps) {
+export default function Toolbar({ onLogout, onDeleteAllData, status = '' }: ToolbarProps) {
   return (
     <Box 
       borderBottom="1px solid"
@@ -20,7 +19,7 @@ export default function Toolbar({ onCreateBasicProfile, onLogout, isLoading = fa
       <Flex justify="space-between" align="center">
         <Flex align="center" gap={4}>
           <Heading size="md" color="gray.800">
-            Sauna Profiler
+          Sauna Profile Builder
           </Heading>
         </Flex>
         
@@ -31,17 +30,6 @@ export default function Toolbar({ onCreateBasicProfile, onLogout, isLoading = fa
             </Text>
           )}
           
-          <Button
-            leftIcon={<FileUser size={16} />}
-            colorScheme="blue"
-            size="sm"
-            onClick={onCreateBasicProfile}
-            isLoading={isLoading}
-            loadingText="Analyzing..."
-          >
-            Basic Profile
-          </Button>
-          
           <Menu>
             <MenuButton
               as={IconButton}
@@ -51,6 +39,9 @@ export default function Toolbar({ onCreateBasicProfile, onLogout, isLoading = fa
               aria-label="Menu"
             />
             <MenuList>
+              <MenuItem icon={<Trash2 size={16} />} onClick={onDeleteAllData} color="red.600">
+                Delete all data
+              </MenuItem>
               <MenuItem icon={<LogOut size={16} />} onClick={onLogout}>
                 Logout
               </MenuItem>

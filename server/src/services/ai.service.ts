@@ -1,27 +1,73 @@
 import { generateObject } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
+import { Dotprompt } from 'dotprompt';
+import * as fs from 'fs';
+import * as path from 'path';
+import { jsonSchemaToZod } from 'json-schema-to-zod';
+import { extractEmailContent } from '../utils/extract-email-content';
+import { getConfidenceLanguage } from '../utils/get-confidence-language';
 
-// Schema for email insights
-const InferenceSchema = z.object({
-  category: z.string().describe('Category of the inference (e.g., professional, personal, communication)'),
-  insight: z.string().describe('The specific insight about the user'),
-  confidence: z.number().min(0).max(1).describe('Confidence level of this inference'),
-  evidence: z.string().describe('What in the email supports this inference')
-});
-
-const InferencesSchema = z.object({
-  inferences: z.array(InferenceSchema)
-});
+// Schemas are now loaded from .prompt files via Dotprompt
 
 export class AIService {
-  private readonly model = openai('gpt-4-turbo');
+  private dotprompt: Dotprompt;
 
   constructor() {
     // Check if OpenAI API key is configured
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not set in environment variables');
     }
+    
+    this.dotprompt = new Dotprompt();
+  }
+
+  /**
+   * Load and process a .prompt file with the Dotprompt library
+   */
+  private async loadPromptFile(filename: string, variables: Record<string, any>) {
+    const filePath = path.join(process.cwd(), 'src', 'prompts', `${filename}.prompt`);
+    const promptSource = fs.readFileSync(filePath, 'utf-8');
+    
+    // Parse the prompt to extract metadata and template
+    const parsedPrompt = this.dotprompt.parse(promptSource);
+    
+    // Render the template with variables
+    const renderedPrompt = await this.dotprompt.render(promptSource, { input: variables });
+    
+    // Extract the model name from metadata
+    const modelName = parsedPrompt.model?.split('/')[1] || 'gpt-4o-mini';
+    
+    // Extract and convert the output schema
+    const outputSchema = parsedPrompt.output?.schema;
+    let zodSchemaInstance: z.ZodTypeAny;
+    
+    if (outputSchema) {
+      // Convert JSON Schema to Zod using the library
+      try {
+        const zodSchemaCode = jsonSchemaToZod(outputSchema);
+        
+        // Evaluate the generated Zod schema code with z in context
+        zodSchemaInstance = new Function('z', `return ${zodSchemaCode}`)(z);
+      } catch (error) {
+        console.error('Error converting JSON Schema to Zod:', error);
+        throw new Error(`Failed to convert schema in ${filename}.prompt: ${error}`);
+      }
+    } else {
+      throw new Error(`No output schema defined in ${filename}.prompt`);
+    }
+    
+    // Extract the rendered text from messages
+    const promptText = renderedPrompt.messages
+      .map(msg => msg.content.map(part => 'text' in part ? part.text : '').join(''))
+      .join('\n');
+    
+    return {
+      modelName,
+      promptText,
+      schema: zodSchemaInstance,
+      config: parsedPrompt.config || {}
+    };
   }
 
   /**
@@ -29,50 +75,24 @@ export class AIService {
    */
   async processMessage(emailObj: any, userId: string): Promise<{ inferences: any[] }> {
     try {
-      const emailContent = this.extractEmailContent(emailObj);
-      console.log('Processing email with content length:', emailContent.length);
-      console.log('Email snippet:', emailObj.snippet?.substring(0, 100) + '...');
+      const emailContent = extractEmailContent(emailObj);
       
-      const prompt = `Analyze this email to extract factual insights about the user. Focus on:
-
-**Professional Profile:**
-- Job title, role, company, industry
-- Responsibilities and decision-making authority
-- Team structure and reporting relationships
-- Work patterns and communication style
-
-**Personal Characteristics:**
-- Communication preferences and tone
-- Time management and scheduling patterns
-- Geographic location and travel habits
-- Technology usage and workflow preferences
-
-**Relationships and Networks:**
-- Professional contacts and their roles
-- Communication frequency with different people
-- Collaboration patterns and meeting habits
-
-**Behavioral Patterns:**
-- Email response timing and patterns
-- Task management and follow-up habits
-- Information processing and decision styles
-- Pain points and workflow inefficiencies
-
-Email data:
-${emailContent}
-
-Extract specific, factual insights that build a comprehensive profile of this user. Only include insights you can directly infer from the email content. Be precise and evidence-based.`;
-
-      const result = await generateObject({
-        model: this.model,
-        schema: InferencesSchema,
-        prompt
+      // Determine which prompt file to use based on email type
+      const promptFilename = emailObj.emailType === 'sent' 
+        ? 'extract-insights-sent'
+        : 'extract-insights-received';
+      
+      // Load and render the appropriate prompt
+      const { modelName, promptText, schema, config } = await this.loadPromptFile(promptFilename, {
+        emailContent
       });
 
-      console.log('AI extracted insights count:', result.object.inferences.length);
-      if (result.object.inferences.length > 0) {
-        console.log('Sample insight:', result.object.inferences[0]);
-      }
+      const result = await generateObject({
+        model: openai(modelName),
+        schema,
+        prompt: promptText,
+        ...config  // Include any additional config from the prompt file
+      });
 
       return { inferences: result.object.inferences };
     } catch (error) {
@@ -82,23 +102,48 @@ Extract specific, factual insights that build a comprehensive profile of this us
   }
 
   /**
-   * Extract readable content from email object
+   * Intelligently blend new insights with existing profile content
    */
-  private extractEmailContent(emailObj: any): string {
-    const headers = emailObj.payload?.headers || [];
-    const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
-    const from = headers.find((h: any) => h.name === 'From')?.value || '';
-    const to = headers.find((h: any) => h.name === 'To')?.value || '';
-    const date = new Date(parseInt(emailObj.internalDate)).toISOString();
-    
-    return `
-Subject: ${subject}
-From: ${from}
-To: ${to}
-Date: ${date}
-Snippet: ${emailObj.snippet || ''}
-Thread ID: ${emailObj.threadId}
-Labels: ${emailObj.labelIds?.join(', ') || 'none'}
-`.trim();
+  async blendProfile({
+    category,
+    newInsights,
+    existingContent,
+    userInfo
+  }: {
+    category: string;
+    newInsights: any[];
+    existingContent: string | null;
+    userInfo: any;
+  }): Promise<string> {
+    try {
+      // Convert confidence scores to natural language modifiers
+      const insightsWithLanguage = newInsights.map(insight => ({
+        ...insight,
+        confidenceLanguage: getConfidenceLanguage(insight.confidence)
+      }));
+
+      // Load and render the blend-profile prompt
+      const { modelName, promptText, schema, config } = await this.loadPromptFile('blend-profile', {
+        category,
+        newInsights: insightsWithLanguage,
+        existingContent,
+        userInfo
+      });
+
+      const result = await generateObject({
+        model: openai(modelName),
+        schema,
+        prompt: promptText,
+        ...config
+      });
+
+      return result.object.content;
+
+    } catch (error) {
+      console.error('Error in AI blendProfile:', error);
+      throw error;
+    }
   }
+
+
 } 

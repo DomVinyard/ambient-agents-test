@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { GmailService } from './services/gmail.service';
-import { ZepService } from './services/zep.service';
 import { AIService } from './services/ai.service';
 import { pusherService } from './services/pusher.service';
 
@@ -11,7 +10,6 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
-const WORDWARE_CONCURRENCY_LIMIT = 100;
 
 // Check if OpenAI API key is configured
 if (!process.env.OPENAI_API_KEY) {
@@ -23,7 +21,6 @@ if (!process.env.OPENAI_API_KEY) {
 
 // Initialize services
 const gmailService = new GmailService();
-const zepService = new ZepService();
 const aiService = new AIService();
 
 // Middleware
@@ -43,14 +40,19 @@ function getSessionId(req: any): string {
   return req.body?.sessionId || req.query?.sessionId || 'default';
 }
 
-// 1. Start OAuth flow
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Gmail OAuth flow
 app.get('/auth/gmail', (req, res) => {
   console.log('Starting Gmail OAuth flow');
   const url = gmailService.generateAuthUrl();
   res.redirect(url);
 });
 
-// 2. OAuth callback
+// OAuth callback
 app.get('/auth/gmail/callback', async (req, res) => {
   console.log('Received OAuth callback');
   const code = req.query.code as string;
@@ -69,106 +71,7 @@ app.get('/auth/gmail/callback', async (req, res) => {
   }
 });
 
-// Basic health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-// Helper for concurrency-limited processing
-async function processWithConcurrencyLimit<T, R>(
-  items: T[],
-  limit: number,
-  asyncFn: (item: T, idx: number) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = [];
-  let i = 0;
-  const workers = Array.from({ length: limit }).map(async () => {
-    while (i < items.length) {
-      const idx = i++;
-      results[idx] = await asyncFn(items[idx], idx);
-    }
-  });
-  await Promise.all(workers);
-  return results;
-}
-
-app.post('/api/gmail/sync', async (req, res) => {
-  const { tokens } = req.body;
-  const sessionId = getSessionId(req);
-  console.log(`Starting Gmail sync for session: ${sessionId}`);
-
-
-  
-  if (!tokens) {
-    console.error('No tokens provided for Gmail sync');
-    return res.status(400).json({ error: 'Missing tokens' });
-  }
-
-  try {
-    const { email, firstName, lastName, emails } = await gmailService.syncEmails(tokens);
-    await pusherService.trigger(`${sessionId}`, 'email-sync-start', {
-      total: emails.length
-    });
-    
-    // Clear existing user data
-    await zepService.deleteUser(sessionId);
-    
-    // Add user to Zep
-    await zepService.addUser(sessionId, email, firstName, lastName);
-
-    // Process all emails with concurrency limit and emit a Pusher event for each
-    await processWithConcurrencyLimit(
-      emails,
-      WORDWARE_CONCURRENCY_LIMIT,
-      async (emailObj) => {
-        try {
-          console.log('Processing email');
-          const aiResult = await aiService.processMessage(emailObj, email);
-          const inferences = aiResult?.inferences || [];
-
-          if (inferences.length > 0) {
-            const timestamp = emailObj.internalDate || new Date().toISOString();
-            await zepService.addBatchInferences(
-              sessionId,
-              inferences,
-              'gmail',
-              timestamp
-            );
-          }
-
-          // Emit the email event (include total)
-          await pusherService.trigger(`${sessionId}`, 'email-sync', {
-            email: {
-              id: emailObj.id,
-              snippet: emailObj.snippet,
-              subject: emailObj.payload?.headers?.find(h => h.name === 'Subject')?.value,
-              from: emailObj.payload?.headers?.find(h => h.name === 'From')?.value,
-              date: emailObj.internalDate,
-              inferences: inferences
-            },
-            total: emails.length
-          });
-        } catch (e) {
-          console.error('Error processing email:', e);
-        }
-      }
-    );
-
-    // Emit completion event
-    await pusherService.trigger(`${sessionId}`, 'sync-complete', {
-      totalProcessed: emails.length,
-      totalEmails: emails.length
-    });
-
-    console.log(`Successfully processed ${emails.length} emails for session: ${sessionId}`);
-    res.json({ status: 'success', totalProcessed: emails.length });
-  } catch (err) {
-    console.error('Error in /api/gmail/sync:', err);
-    res.status(500).json({ error: 'Failed to fetch emails', details: err instanceof Error ? err.message : err });
-  }
-});
-
-// Add Pusher authentication endpoint
+// Pusher authentication endpoint
 app.post('/api/pusher/auth', (req, res) => {
   const socketId = req.body.socket_id;
   const channel = req.body.channel_name;
@@ -186,162 +89,172 @@ app.post('/api/pusher/auth', (req, res) => {
     console.error('Error authenticating Pusher channel:', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
-  });
+});
 
-app.post('/api/gmail/basic-profile', async (req, res) => {
+// Fetch emails endpoint (step 1)
+app.post('/api/gmail/fetch-emails', async (req, res) => {
   const { tokens } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Creating basic profile for session: ${sessionId}`);
+  console.log(`Fetching emails for session: ${sessionId}`);
 
   if (!tokens) {
-    console.error('No tokens provided for basic profile');
+    console.error('No tokens provided for email fetch');
     return res.status(400).json({ error: 'Missing tokens' });
   }
 
   try {
-    // Emit start event
-    await pusherService.trigger(`${sessionId}`, 'profile-start', {
-      total: 10
-    });
+    await pusherService.trigger(`${sessionId}`, 'fetch-start', {});
 
-    // Fetch recent emails (limit to 10 for basic profile)
     const { email, firstName, lastName, emails } = await gmailService.syncEmails(tokens);
     
-    // Get the latest 10 emails
-    const recentEmails = emails.slice(0, 10);
+    // Gmail service already limits the emails based on EMAIL_FETCH_LIMIT
+    const recentEmails = emails;
     
-    console.log(`Processing ${recentEmails.length} recent emails for basic profile`);
-    
-    // Process emails to extract insights
-    const allInsights: any[] = [];
-    console.log('Starting to process emails with AI...');
-    for (let i = 0; i < recentEmails.length; i++) {
-      const emailObj = recentEmails[i];
-      try {
-        const subject = emailObj.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || 'No subject';
-        console.log(`Processing email ${i + 1}/${recentEmails.length} - Subject: ${subject}`);
-        
-        // Emit processing event
-        await pusherService.trigger(`${sessionId}`, 'profile-processing', {
-          current: i + 1,
-          total: recentEmails.length,
-          subject: subject
-        });
-        
-        const aiResult = await aiService.processMessage(emailObj, email);
-        console.log(`Email ${i + 1} processed - Insights found: ${aiResult.inferences?.length || 0}`);
-        
-        if (aiResult.inferences && aiResult.inferences.length > 0) {
-          allInsights.push(...aiResult.inferences);
-        }
-      } catch (e) {
-        console.error(`Error processing email ${i + 1} for basic profile:`, e);
-      }
-    }
-    console.log(`Finished processing emails. Total insights extracted: ${allInsights.length}`);
+         // Format emails for the frontend
+     const formattedEmails = recentEmails.map(emailObj => {
+       const headers = emailObj.payload?.headers || [];
+       const internalDate = emailObj.internalDate ? parseInt(emailObj.internalDate) : Date.now();
+       return {
+         id: emailObj.id,
+         subject: headers.find((h: any) => h.name === 'Subject')?.value || 'No subject',
+         from: headers.find((h: any) => h.name === 'From')?.value || '',
+         date: new Date(internalDate).toISOString(),
+         internalDate: internalDate,
+         snippet: emailObj.snippet || '',
+         fullBody: emailObj.fullBody || '',
+         threadId: emailObj.threadId,
+         labelIds: emailObj.labelIds || [],
+         emailType: emailObj.emailType || 'unknown'
+       };
+     });
 
-    // Emit generating event
-    await pusherService.trigger(`${sessionId}`, 'profile-generating', {
-      totalInsights: allInsights.length
+     // Deduplicate by thread - keep only the most recent email from each thread
+     const threadMap = new Map();
+     formattedEmails.forEach(email => {
+       const existing = threadMap.get(email.threadId);
+       if (!existing || email.internalDate > existing.internalDate) {
+         threadMap.set(email.threadId, email);
+       }
+     });
+     
+     const deduplicatedEmails = Array.from(threadMap.values()).map(email => {
+       // Remove internalDate from final output as it's only needed for sorting
+       const { internalDate, ...emailWithoutInternalDate } = email;
+       return emailWithoutInternalDate;
+     });
+
+         const inboxCount = deduplicatedEmails.filter(e => e.emailType === 'inbox').length;
+     const sentCount = deduplicatedEmails.filter(e => e.emailType === 'sent').length;
+     
+     await pusherService.trigger(`${sessionId}`, 'fetch-complete', {
+       totalEmails: deduplicatedEmails.length,
+       inboxCount,
+       sentCount
+     });
+     
+     res.json({ 
+       emails: deduplicatedEmails,
+       userInfo: { email, firstName, lastName }
+     });
+
+  } catch (err) {
+    console.error('Error fetching emails:', err);
+    await pusherService.trigger(`${sessionId}`, 'fetch-error', {
+      error: err instanceof Error ? err.message : 'Unknown error'
     });
+    res.status(500).json({ error: 'Failed to fetch emails', details: err instanceof Error ? err.message : err });
+  }
+});
 
-    // Generate markdown profile content
-    const profileContent = generateMarkdownProfile(email, firstName, lastName, allInsights, recentEmails.length);
+// Extract insights from a single email (step 2)
+app.post('/api/gmail/extract-insights', async (req, res) => {
+  const { tokens, emailId, emailData } = req.body;
+  const sessionId = getSessionId(req);
+  console.log(`Extracting insights for email ${emailId}, session: ${sessionId}`);
+
+  if (!tokens || !emailId || !emailData) {
+    return res.status(400).json({ error: 'Missing tokens, emailId, or emailData' });
+  }
+
+  try {
+    await pusherService.trigger(`${sessionId}`, 'insights-start', { emailId });
+
+    // Convert frontend email format to the format expected by AI service
+    const targetEmail = {
+      id: emailData.id,
+      snippet: emailData.snippet,
+      fullBody: emailData.fullBody,
+      internalDate: new Date(emailData.date).getTime().toString(),
+      labelIds: emailData.labelIds || [],
+      payload: {
+        headers: [
+          { name: 'Subject', value: emailData.subject },
+          { name: 'From', value: emailData.from },
+          { name: 'To', value: '' }, // Not available in frontend format
+          { name: 'Date', value: emailData.date }
+        ]
+      }
+    };
+
+    // Use placeholder for AI processing (actual user email not needed for insight extraction)
+    const aiResult = await aiService.processMessage(targetEmail, 'user');
     
-    console.log(`Generated basic profile with ${allInsights.length} insights`);
-    
-    // Emit completion event
-    await pusherService.trigger(`${sessionId}`, 'profile-complete', {
-      totalInsights: allInsights.length,
-      totalEmails: recentEmails.length
+    await pusherService.trigger(`${sessionId}`, 'insights-complete', {
+      emailId,
+      insightsCount: aiResult.inferences?.length || 0
     });
     
     res.json({ 
-      profileContent,
-      totalEmailsProcessed: recentEmails.length,
-      totalInsights: allInsights.length
+      insights: aiResult.inferences || [],
+      emailId 
     });
 
   } catch (err) {
-    console.error('Error creating basic profile:', err);
-    
-    // Emit error event
-    await pusherService.trigger(`${sessionId}`, 'profile-error', {
+    console.error('Error extracting insights:', err);
+    await pusherService.trigger(`${sessionId}`, 'insights-error', {
+      emailId,
       error: err instanceof Error ? err.message : 'Unknown error'
     });
-    
-    res.status(500).json({ error: 'Failed to create basic profile', details: err instanceof Error ? err.message : err });
+    res.status(500).json({ error: 'Failed to extract insights', details: err instanceof Error ? err.message : err });
   }
 });
 
-// Helper function to generate markdown profile
-function generateMarkdownProfile(email: string, firstName: string, lastName: string, insights: any[], emailCount: number): string {
-  const now = new Date().toLocaleString();
-  
-  // Group insights by category
-  const categorizedInsights: Record<string, any[]> = {};
-  insights.forEach(insight => {
-    const category = insight.category || 'general';
-    if (!categorizedInsights[category]) {
-      categorizedInsights[category] = [];
-    }
-    categorizedInsights[category].push(insight);
-  });
-
-  let markdown = `# Basic Profile\n\n`;
-  markdown += `**Generated:** ${now}  \n`;
-  markdown += `**Email:** ${email}  \n`;
-  markdown += `**Name:** ${firstName} ${lastName}  \n`;
-  markdown += `**Source:** ${emailCount} recent emails  \n\n`;
-
-  markdown += `## Summary\n\n`;
-  markdown += `This profile was automatically generated by analyzing ${emailCount} recent emails. `;
-  markdown += `A total of ${insights.length} insights were extracted across ${Object.keys(categorizedInsights).length} categories.\n\n`;
-
-  // Add insights by category
-  const categoryOrder = ['professional', 'personal', 'communication', 'behavioral', 'technical', 'general'];
-  const sortedCategories = [...new Set([...categoryOrder, ...Object.keys(categorizedInsights)])];
-
-  sortedCategories.forEach(category => {
-    if (categorizedInsights[category] && categorizedInsights[category].length > 0) {
-      const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-      markdown += `## ${categoryTitle}\n\n`;
-      
-      categorizedInsights[category].forEach(insight => {
-        markdown += `- **${insight.insight}**\n`;
-        if (insight.evidence) {
-          markdown += `  *Evidence: ${insight.evidence}*\n`;
-        }
-        if (insight.confidence) {
-          markdown += `  *Confidence: ${Math.round(insight.confidence * 100)}%*\n`;
-        }
-        markdown += `\n`;
-      });
-    }
-  });
-
-  markdown += `## Notes\n\n`;
-  markdown += `This profile is automatically generated and should be reviewed for accuracy. `;
-  markdown += `You can edit this file to add additional information or correct any inaccuracies.\n\n`;
-  markdown += `Last updated: ${now}`;
-
-  return markdown;
-}
-
-app.get('/api/zep/read', async (req, res) => {
+// Blend profile content with AI (step 3)
+app.post('/api/ai/blend-profile', async (req, res) => {
+  const { tokens, category, newInsights, existingContent, userInfo } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Reading Zep memories for session: ${sessionId}`);
+  console.log(`Blending profile for category: ${category}, session: ${sessionId}`);
+
+  if (!tokens || !category || !newInsights || !userInfo) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
   try {
-    const memories = await zepService.getSessionMessages(sessionId);
-    console.log(`Retrieved ${memories?.messages?.length || 0} memories for session: ${sessionId}`);
-    res.json(memories);
+    await pusherService.trigger(`${sessionId}`, 'blend-start', { category });
+
+    const blendedContent = await aiService.blendProfile({
+      category,
+      newInsights,
+      existingContent,
+      userInfo
+    });
+    
+    await pusherService.trigger(`${sessionId}`, 'blend-complete', {
+      category,
+      wordCount: blendedContent.split(' ').length
+    });
+    
+    res.json({ content: blendedContent });
+
   } catch (err) {
-    console.error('Error reading from Zep:', err);
-    res.status(500).json({ error: 'Failed to read from memory', details: err instanceof Error ? err.message : err });
+    console.error('Error blending profile:', err);
+    await pusherService.trigger(`${sessionId}`, 'blend-error', {
+      category,
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+    res.status(500).json({ error: 'Failed to blend profile', details: err instanceof Error ? err.message : err });
   }
 });
-
-
 
 // Start server
 app.listen(port, () => {
