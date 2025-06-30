@@ -54,10 +54,10 @@ app.get('/auth/gmail/callback', async (req, res) => {
     const { tokens } = await gmailService.getToken(code);
     console.log('Successfully obtained Gmail tokens');
     const tokensParam = encodeURIComponent(JSON.stringify(tokens));
-    res.redirect(`http://localhost:3000/actions?gmail=success&tokens=${tokensParam}`);
+    res.redirect(`http://localhost:3000/?gmail=success&tokens=${tokensParam}`);
   } catch (err) {
     console.error('Error in OAuth callback:', err);
-    res.redirect('http://localhost:3000/actions?gmail=error');
+    res.redirect('http://localhost:3000/?gmail=error');
   }
 });
 
