@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Box, Button, VStack, Text, Heading } from '@chakra-ui/react';
+import Dashboard from './components/Dashboard';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -49,7 +50,12 @@ function App() {
     setIsAuthenticated(false);
     setUserEmail('');
     localStorage.removeItem('ambient-agents-auth');
+    localStorage.removeItem('ambient-agents-files'); // Also clear files
   };
+
+  if (isAuthenticated) {
+    return <Dashboard onLogout={handleLogout} />;
+  }
 
   return (
     <Box 
@@ -63,40 +69,22 @@ function App() {
     >
       <VStack spacing={8} maxW="md" w="full">
         <Heading size="xl" textAlign="center" color="gray.900">
-          Ambient Agents
+          Sauna Profiler
         </Heading>
         
-        {!isAuthenticated ? (
-          <VStack spacing={6}>
-            <Text fontSize="lg" textAlign="center" color="gray.600">
-              Connect your Gmail to get started
-            </Text>
-            <Button
-              colorScheme="blue"
-              size="lg"
-              onClick={handleGoogleLogin}
-              px={8}
-            >
-              Sign in with Google
-            </Button>
-          </VStack>
-        ) : (
-          <VStack spacing={6}>
-            <Text fontSize="xl" color="green.600" fontWeight="semibold">
-              ✓ Authenticated
-            </Text>
-            <Text fontSize="md" color="gray.600" textAlign="center">
-              Welcome! You are now connected to Gmail.
-            </Text>
-            <Button
-              colorScheme="gray"
-              variant="outline"
-              onClick={handleLogout}
-            >
-              Logout
-            </Button>
-          </VStack>
-        )}
+        <VStack spacing={6}>
+          <Text fontSize="lg" textAlign="center" color="gray.600">
+            Connect your Gmail to get started
+          </Text>
+          <Button
+            colorScheme="blue"
+            size="lg"
+            onClick={handleGoogleLogin}
+            px={8}
+          >
+            Sign in with Google
+          </Button>
+        </VStack>
       </VStack>
     </Box>
   );

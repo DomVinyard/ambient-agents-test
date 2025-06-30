@@ -7,11 +7,30 @@ class PusherService {
     private pusher: Pusher;
 
     constructor() {
+        // Check if Pusher environment variables are configured
+        const appId = process.env.PUSHER_APP_ID;
+        const key = process.env.PUSHER_KEY;
+        const secret = process.env.PUSHER_SECRET;
+        const cluster = process.env.PUSHER_CLUSTER;
+
+        console.log('Pusher Environment Variables:');
+        console.log('PUSHER_APP_ID:', appId ? 'Found' : 'Missing');
+        console.log('PUSHER_KEY:', key ? 'Found' : 'Missing');
+        console.log('PUSHER_SECRET:', secret ? 'Found' : 'Missing');
+        console.log('PUSHER_CLUSTER:', cluster || 'Missing');
+
+        if (!appId || !key || !secret || !cluster) {
+            console.error('⚠️  WARNING: One or more Pusher environment variables are missing!');
+            console.error('   Required: PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER');
+        } else {
+            console.log('✅ All Pusher environment variables are configured');
+        }
+
         this.pusher = new Pusher({
-            appId: process.env.PUSHER_APP_ID!,
-            key: process.env.PUSHER_KEY!,
-            secret: process.env.PUSHER_SECRET!,
-            cluster: process.env.PUSHER_CLUSTER!,
+            appId: appId!,
+            key: key!,
+            secret: secret!,
+            cluster: cluster!,
             useTLS: true
         });
     }
@@ -24,9 +43,12 @@ class PusherService {
      */
     async trigger(channel: string, event: string, data: any) {
         try {
-            await this.pusher.trigger(channel, event, data);
+            console.log(`📤 Sending Pusher event: ${event} to channel: ${channel}`, data);
+            const result = await this.pusher.trigger(channel, event, data);
+            console.log(`✅ Pusher event sent successfully`);
+            return result;
         } catch (error) {
-            console.error('Error triggering Pusher event:', error);
+            console.error('❌ Error triggering Pusher event:', error);
             throw error;
         }
     }

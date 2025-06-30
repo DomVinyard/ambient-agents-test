@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { GmailService } from './services/gmail.service';
 import { ZepService } from './services/zep.service';
-import { WordwareService } from './services/wordware.service';
+import { AIService } from './services/ai.service';
 import { pusherService } from './services/pusher.service';
 
 dotenv.config();
@@ -13,10 +13,18 @@ const app = express();
 const port = process.env.PORT || 3001;
 const WORDWARE_CONCURRENCY_LIMIT = 100;
 
+// Check if OpenAI API key is configured
+if (!process.env.OPENAI_API_KEY) {
+  console.error('⚠️  WARNING: OPENAI_API_KEY is not set in environment variables!');
+  console.error('   AI features will not work without this key.');
+} else {
+  console.log('✅ OpenAI API key is configured');
+}
+
 // Initialize services
 const gmailService = new GmailService();
 const zepService = new ZepService();
-const wordwareService = new WordwareService();
+const aiService = new AIService();
 
 // Middleware
 app.use(cors());
@@ -115,8 +123,8 @@ app.post('/api/gmail/sync', async (req, res) => {
       async (emailObj) => {
         try {
           console.log('Processing email');
-          const wordwareResult = await wordwareService.processMessage(emailObj, email);
-          const inferences = wordwareResult?.data?.attributes?.outputs?.Inferences?.Inferences || [];
+          const aiResult = await aiService.processMessage(emailObj, email);
+          const inferences = aiResult?.inferences || [];
 
           if (inferences.length > 0) {
             const timestamp = emailObj.internalDate || new Date().toISOString();
@@ -178,7 +186,147 @@ app.post('/api/pusher/auth', (req, res) => {
     console.error('Error authenticating Pusher channel:', error);
     res.status(500).json({ error: 'Authentication failed' });
   }
+  });
+
+app.post('/api/gmail/basic-profile', async (req, res) => {
+  const { tokens } = req.body;
+  const sessionId = getSessionId(req);
+  console.log(`Creating basic profile for session: ${sessionId}`);
+
+  if (!tokens) {
+    console.error('No tokens provided for basic profile');
+    return res.status(400).json({ error: 'Missing tokens' });
+  }
+
+  try {
+    // Emit start event
+    await pusherService.trigger(`${sessionId}`, 'profile-start', {
+      total: 10
+    });
+
+    // Fetch recent emails (limit to 10 for basic profile)
+    const { email, firstName, lastName, emails } = await gmailService.syncEmails(tokens);
+    
+    // Get the latest 10 emails
+    const recentEmails = emails.slice(0, 10);
+    
+    console.log(`Processing ${recentEmails.length} recent emails for basic profile`);
+    
+    // Process emails to extract insights
+    const allInsights: any[] = [];
+    console.log('Starting to process emails with AI...');
+    for (let i = 0; i < recentEmails.length; i++) {
+      const emailObj = recentEmails[i];
+      try {
+        const subject = emailObj.payload?.headers?.find((h: any) => h.name === 'Subject')?.value || 'No subject';
+        console.log(`Processing email ${i + 1}/${recentEmails.length} - Subject: ${subject}`);
+        
+        // Emit processing event
+        await pusherService.trigger(`${sessionId}`, 'profile-processing', {
+          current: i + 1,
+          total: recentEmails.length,
+          subject: subject
+        });
+        
+        const aiResult = await aiService.processMessage(emailObj, email);
+        console.log(`Email ${i + 1} processed - Insights found: ${aiResult.inferences?.length || 0}`);
+        
+        if (aiResult.inferences && aiResult.inferences.length > 0) {
+          allInsights.push(...aiResult.inferences);
+        }
+      } catch (e) {
+        console.error(`Error processing email ${i + 1} for basic profile:`, e);
+      }
+    }
+    console.log(`Finished processing emails. Total insights extracted: ${allInsights.length}`);
+
+    // Emit generating event
+    await pusherService.trigger(`${sessionId}`, 'profile-generating', {
+      totalInsights: allInsights.length
+    });
+
+    // Generate markdown profile content
+    const profileContent = generateMarkdownProfile(email, firstName, lastName, allInsights, recentEmails.length);
+    
+    console.log(`Generated basic profile with ${allInsights.length} insights`);
+    
+    // Emit completion event
+    await pusherService.trigger(`${sessionId}`, 'profile-complete', {
+      totalInsights: allInsights.length,
+      totalEmails: recentEmails.length
+    });
+    
+    res.json({ 
+      profileContent,
+      totalEmailsProcessed: recentEmails.length,
+      totalInsights: allInsights.length
+    });
+
+  } catch (err) {
+    console.error('Error creating basic profile:', err);
+    
+    // Emit error event
+    await pusherService.trigger(`${sessionId}`, 'profile-error', {
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+    
+    res.status(500).json({ error: 'Failed to create basic profile', details: err instanceof Error ? err.message : err });
+  }
 });
+
+// Helper function to generate markdown profile
+function generateMarkdownProfile(email: string, firstName: string, lastName: string, insights: any[], emailCount: number): string {
+  const now = new Date().toLocaleString();
+  
+  // Group insights by category
+  const categorizedInsights: Record<string, any[]> = {};
+  insights.forEach(insight => {
+    const category = insight.category || 'general';
+    if (!categorizedInsights[category]) {
+      categorizedInsights[category] = [];
+    }
+    categorizedInsights[category].push(insight);
+  });
+
+  let markdown = `# Basic Profile\n\n`;
+  markdown += `**Generated:** ${now}  \n`;
+  markdown += `**Email:** ${email}  \n`;
+  markdown += `**Name:** ${firstName} ${lastName}  \n`;
+  markdown += `**Source:** ${emailCount} recent emails  \n\n`;
+
+  markdown += `## Summary\n\n`;
+  markdown += `This profile was automatically generated by analyzing ${emailCount} recent emails. `;
+  markdown += `A total of ${insights.length} insights were extracted across ${Object.keys(categorizedInsights).length} categories.\n\n`;
+
+  // Add insights by category
+  const categoryOrder = ['professional', 'personal', 'communication', 'behavioral', 'technical', 'general'];
+  const sortedCategories = [...new Set([...categoryOrder, ...Object.keys(categorizedInsights)])];
+
+  sortedCategories.forEach(category => {
+    if (categorizedInsights[category] && categorizedInsights[category].length > 0) {
+      const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
+      markdown += `## ${categoryTitle}\n\n`;
+      
+      categorizedInsights[category].forEach(insight => {
+        markdown += `- **${insight.insight}**\n`;
+        if (insight.evidence) {
+          markdown += `  *Evidence: ${insight.evidence}*\n`;
+        }
+        if (insight.confidence) {
+          markdown += `  *Confidence: ${Math.round(insight.confidence * 100)}%*\n`;
+        }
+        markdown += `\n`;
+      });
+    }
+  });
+
+  markdown += `## Notes\n\n`;
+  markdown += `This profile is automatically generated and should be reviewed for accuracy. `;
+  markdown += `You can edit this file to add additional information or correct any inaccuracies.\n\n`;
+  markdown += `Last updated: ${now}`;
+
+  return markdown;
+}
 
 app.get('/api/zep/read', async (req, res) => {
   const sessionId = getSessionId(req);
@@ -193,209 +341,7 @@ app.get('/api/zep/read', async (req, res) => {
   }
 });
 
-app.post('/api/zep/query', async (req, res) => {
-  const sessionId = getSessionId(req);
-  const { query, limit = 10 } = req.body;
-  console.log(`Processing Zep query for session: ${sessionId} - Query: "${query}"`);
-  
-  if (!query) {
-    console.error('Missing query parameter in Zep query');
-    return res.status(400).json({ error: 'Query is required' });
-  }
 
-  try {
-    const searchResults = await zepService.searchGraph(query, sessionId, limit);
-    console.log(`Found ${searchResults.edges?.length || 0} relevant memories for query`);
-    const edges = searchResults.edges || [];
-    const formattedMemories = edges.map(edge => ({
-      content: edge.fact,
-      metadata: {
-        source: edge.name || 'unknown',
-        timestamp: edge.createdAt,
-        score: 1.0
-      },
-      relevance: 1.0
-    }));
-
-    const wordwareData = await wordwareService.answerQuestion(query, formattedMemories);
-    const answer = wordwareData?.data?.attributes?.outputs?.Answer?.answer || '';
-
-    res.json({
-      answer,
-      memories: formattedMemories
-    });
-  } catch (err) {
-    console.error('Error querying memory:', err);
-    res.status(500).json({ error: 'Failed to query memory', details: err instanceof Error ? err.message : err });
-  }
-});
-
-app.post('/api/mock-agent', async (req, res) => {
-  const sessionId = getSessionId(req);
-  try {
-    let userEmail = sessionId;
-    
-    try {
-      const user = await zepService.getUser(sessionId);
-      if (user && user.email) {
-        userEmail = user.email;
-      }
-    } catch (e) {
-      // If user not found, fallback to sessionId
-    }
-
-    const wordwareData = await wordwareService.suggestAgents(sessionId, userEmail);
-    const suggestions = wordwareData?.data?.attributes?.outputs?.['Suggested Agents']?.suggested || [];
-
-    res.json(suggestions);
-  } catch (err) {
-    console.error('Error generating agent suggestions:', err);
-    res.status(500).json({ error: 'Failed to generate agent suggestions', details: err instanceof Error ? err.message : err });
-  }
-});
-
-app.post('/api/simulate-actions', async (req, res) => {
-  try {
-    const { activeAgents } = req.body;
-    const sessionId = getSessionId(req);
-    
-    // Check if active agents array exists
-    if (!activeAgents || !Array.isArray(activeAgents)) {
-      console.warn(`Missing or invalid activeAgents array for session ${sessionId}, using empty array`);
-    }
-    
-    // Use an empty array if not provided or invalid
-    const agents = Array.isArray(activeAgents) ? activeAgents : [];
-    console.log(`Simulating actions with ${agents.length} active agents for session: ${sessionId}`);
-    
-    // Call Wordware service
-    const wordwareData = await wordwareService.simulateActions(agents);
-    const actions = wordwareData?.data?.attributes?.outputs?.Actions?.actions || [];
-    
-    console.log(`Received ${actions.length} actions from Wordware for session: ${sessionId}`);
-    
-    // If no actions were returned, create mock actions
-    if (!actions.length) {
-      console.log("No actions returned from Wordware, generating mock actions");
-      
-      // Generate mock actions based on the available agents or default ones if no agents
-      const mockActions = generateMockActions(agents);
-      return res.json(mockActions);
-    }
-    
-    // Send the actions to the client
-    res.json(actions);
-  } catch (err) {
-    console.error('Error simulating actions:', err);
-    
-    // On error, return mock actions as fallback
-    console.log("Error occurred, returning mock actions as fallback");
-    const agents = req.body.activeAgents || [];
-    const mockActions = generateMockActions(agents);
-    return res.json(mockActions);
-  }
-});
-
-// Helper function to generate mock actions
-function generateMockActions(agents: any[]) {
-  const actionTypes = ['simple_confirm', 'decision', 'supply_info', 'edit_info'];
-  const numActions = Math.min(10, Math.max(3, agents.length * 2)); // 3-10 actions based on number of agents
-  
-  return Array.from({ length: numActions }, (_, index) => {
-    const type = actionTypes[Math.floor(Math.random() * actionTypes.length)];
-    const useAgent = agents.length > 0 ? Math.random() > 0.3 : false; // 70% chance to use an agent if available
-    const agent = useAgent ? agents[Math.floor(Math.random() * agents.length)] : null;
-    
-    const action: any = {
-      id: `mock-${Date.now()}-${index}`,
-      type,
-      text: `${agent ? 'Agent ' + (agent.title || agent.name || agent.id) : 'System'} ${actionVerb(type)}`
-    };
-    
-    if (agent) {
-      action.agent_id = agent.id || agent.title || 'unknown';
-    }
-    
-    // Add type-specific properties
-    if (type === 'decision') {
-      action.options = generateOptions(type, agent);
-    } else if (type === 'edit_info') {
-      action.text_to_edit = generateTextToEdit(agent);
-    }
-    
-    return action;
-  });
-}
-
-// Helper to generate a verb based on action type
-function actionVerb(type: string): string {
-  switch (type) {
-    case 'simple_confirm':
-      return `needs confirmation for ${randomItem([
-        'processing an email',
-        'archiving old messages',
-        'setting up a reminder',
-        'creating a task',
-        'configuring a notification'
-      ])}`;
-    case 'decision':
-      return `requests your decision on ${randomItem([
-        'how to categorize emails',
-        'priority level for a task',
-        'scheduling preferences',
-        'notification settings',
-        'handling a recurring event'
-      ])}`;
-    case 'supply_info':
-      return `needs additional information about ${randomItem([
-        'your availability next week',
-        'your preferences for email handling',
-        'details for an upcoming meeting',
-        'how to respond to a specific contact',
-        'your goals for task automation'
-      ])}`;
-    case 'edit_info':
-      return `suggests edits to ${randomItem([
-        'a draft email response',
-        'meeting notes',
-        'a task description',
-        'a contact information entry',
-        'a scheduled reminder'
-      ])}`;
-    default:
-      return 'requires your attention';
-  }
-}
-
-// Helper to generate options for decision type
-function generateOptions(type: string, agent: any): string[] {
-  if (type === 'decision') {
-    if (agent && agent.title && agent.title.includes('Email')) {
-      return ['Archive messages', 'Mark as important', 'Create a filter', 'Ignore future messages'];
-    } else if (agent && agent.title && agent.title.includes('Schedule')) {
-      return ['Morning slot', 'Afternoon slot', 'Evening slot', 'Next business day'];
-    } else {
-      return ['Option A', 'Option B', 'Option C'];
-    }
-  }
-  return [];
-}
-
-// Helper to generate text for edit_info type
-function generateTextToEdit(agent: any): string {
-  if (agent && agent.title && agent.title.includes('Email')) {
-    return `Dear [Contact],\n\nThank you for your message. I've reviewed the information you shared and would like to discuss further.\n\nLet me know if you're available for a quick call tomorrow.\n\nBest regards,\n[Your Name]`;
-  } else if (agent && agent.title && agent.title.includes('Meeting')) {
-    return `Meeting Notes - Project Status\n\n- Completed initial research phase\n- Technical implementation delayed by 2 days\n- Client feedback generally positive\n- Next steps: finalize design by Thursday`;
-  } else {
-    return `This is placeholder text that needs to be edited. Please review and make any necessary changes to improve clarity and accuracy.`;
-  }
-}
-
-// Helper to pick a random item from an array
-function randomItem<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
 
 // Start server
 app.listen(port, () => {
