@@ -6,7 +6,11 @@ response_format:
   type: json_object
 input:
   schema:
-    emailContent: string
+    type: object
+    properties:
+      emailContent: 
+        type: string
+    required: [emailContent]
 output:
   schema:
     type: object

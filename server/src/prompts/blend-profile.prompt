@@ -6,23 +6,36 @@ response_format:
   type: json_object
 input:
   schema:
-    category: string
-    newInsights: 
-      type: array
-      items:
+    type: object
+    properties:
+      category: 
+        type: string
+      newInsights: 
+        type: array
+        items:
+          type: object
+          properties:
+            insight: 
+              type: string
+            confidence: 
+              type: number
+            evidence: 
+              type: string
+          required: [insight, confidence, evidence]
+      existingContent: 
+        type: string
+        nullable: true
+      userInfo:
         type: object
         properties:
-          insight: string
-          confidence: number
-          evidence: string
-    existingContent: 
-      type: [string, null]
-    userInfo:
-      type: object
-      properties:
-        firstName: string
-        lastName: string
-        email: string
+          firstName: 
+            type: string
+          lastName: 
+            type: string
+          email: 
+            type: string
+        required: [firstName, lastName, email]
+    required: [category, newInsights, userInfo]
 output:
   schema:
     type: object
