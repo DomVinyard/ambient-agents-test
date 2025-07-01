@@ -1,0 +1,140 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.1
+response_format:
+  type: json_object
+input:
+  schema:
+    type: object
+    properties:
+      emailContent: 
+        type: string
+        description: "The main content/body of the email"
+      emailDate:
+        type: string
+        description: "The date this email was sent/received in YYYY-MM-DD format"
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format for temporal context"
+      emailMetadata:
+        type: object
+        properties:
+          subject:
+            type: string
+            description: "Email subject line"
+          sender:
+            type: string
+            description: "Full sender information (Name <email@domain.com>)"
+          senderDomain:
+            type: string
+            description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
+          to:
+            type: string
+            description: "Recipients in To field"
+        required: [subject, sender, senderDomain]
+    required: [emailContent, emailDate, todaysDate, emailMetadata]
+output:
+  schema:
+    type: object
+    properties:
+      emailType:
+        type: string
+        enum: ["newsletter", "service", "personal", "professional"]
+        description: "The classified type of email"
+      confidence:
+        type: number
+        minimum: 0.5
+        maximum: 1.0
+        description: "Confidence in the classification"
+      reasoning:
+        type: string
+        description: "Brief explanation for the classification decision"
+    required: [emailType, confidence, reasoning]
+---
+system: |
+  You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
+
+  ## EMAIL DIRECTION UNDERSTANDING:
+  - **SENDER**: The person/organization who WROTE and SENT this email
+  - **RECIPIENT/USER**: The person who RECEIVED this email (the user we're building a profile for)
+  - **EMAIL FLOW**: SENDER → EMAIL → RECIPIENT/USER
+
+  CRITICAL: This email was SENT TO the user, not SENT BY the user. You are classifying an email that someone else sent to the user.
+
+user: |
+  Classify this received email into one of four categories to determine the appropriate extraction approach.
+
+  **Today's Date:** {{todaysDate}}
+  **Email Date:** {{emailDate}}
+  **Subject:** {{emailMetadata.subject}}
+  **From:** {{emailMetadata.sender}}
+  **Domain:** {{emailMetadata.senderDomain}}
+  **To:** {{emailMetadata.to}}
+
+  **Email Content:**
+  {{emailContent}}
+
+  ## CLASSIFICATION CATEGORIES:
+
+  ### **NEWSLETTER** - Content/Editorial Publications
+  **Signals:**
+  - Domains: substack.com, medium.com, beehiiv.com, mailchimp.com, constantcontact.com
+  - Unsubscribe links present
+  - Editorial/first-person content (blog post style)
+  - Regular publication format
+  - Content focuses on author's experiences/opinions
+  
+  **Examples:** Blog posts, industry newsletters, personal publications, content subscriptions
+
+  ### **SERVICE** - Automated Account/System Notifications  
+  **Signals:**
+  - Account notifications, receipts, confirmations
+  - Automated/system-generated messages
+  - References user's specific account details
+  - Transactional nature (billing, shipping, booking)
+  - Professional service providers
+  
+  **Examples:** Bank statements, utility bills, booking confirmations, account alerts, receipts
+
+  ### **PERSONAL** - Friends, Family, Personal Contacts
+  **Signals:**
+  - Personal email domains (gmail.com, yahoo.com, etc.)
+  - Casual, informal tone
+  - Personal context (family, social plans, life updates)
+  - First names or nicknames used
+  - Mentions of personal activities, relationships
+  
+  **Examples:** Family updates, friend communications, social invitations, personal catch-ups
+
+  ### **PROFESSIONAL** - Work, Business, Career-Related
+  **Signals:**
+  - Corporate email domains
+  - Business/formal tone
+  - Work-related context (projects, meetings, collaborations)
+  - Professional signatures
+  - Job titles, company names mentioned
+  - Business vocabulary and formality
+  
+  **Examples:** Work emails, business introductions, professional networking, client communications
+
+  ## CLASSIFICATION PROCESS:
+
+  1. **Check sender domain** for obvious category signals
+  2. **Analyze content tone** (casual vs formal vs automated)
+  3. **Identify content purpose** (information vs transaction vs relationship vs work)
+  4. **Look for specific markers** (unsubscribe links, account references, personal context, business context)
+
+  ## EDGE CASES:
+
+  - **Marketing/promotional emails from services** → **service** (focus on account relationship)
+  - **Professional newsletters** → **newsletter** (content focus trumps professional domain)
+  - **Personal emails about work** → **personal** (tone and relationship trumps content topic)
+  - **Automated work notifications** → **service** (automated nature trumps work context)
+
+  **Confidence Guidelines:**
+  - 0.9-1.0: Clear signals, obvious category
+  - 0.7-0.8: Strong indicators but some ambiguity  
+  - 0.5-0.6: Uncertain, mixed signals
+
+  Classify this email and provide your reasoning. 

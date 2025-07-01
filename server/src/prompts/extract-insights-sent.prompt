@@ -14,6 +14,9 @@ input:
       emailDate:
         type: string
         description: "The date this email was sent/received in YYYY-MM-DD format"
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format for temporal context"
       emailMetadata:
         type: object
         properties:
@@ -43,7 +46,7 @@ input:
             enum: ["inbox", "sent"]
             description: "Whether this was received or sent by the user"
         required: [subject, sender, senderDomain, emailType]
-    required: [emailContent, emailDate, emailMetadata]
+    required: [emailContent, emailDate, todaysDate, emailMetadata]
 output:
   schema:
     type: object
@@ -81,10 +84,34 @@ output:
           required: [categories, insight, confidence, evidence, extractedOn, reasoning]
     required: [inferences]
 ---
-user: |
-  Extract PROFILE-WORTHY insights about the USER (email author) from this sent email. Focus on standalone facts that would be useful in a personal profile, not temporary email details or transaction summaries.
+system: |
+  You are analyzing emails that were SENT by the user, meaning the user WROTE and SENT them to someone else.
 
-  Email Date: {{emailDate}}
+  ## EMAIL DIRECTION UNDERSTANDING:
+  - **SENDER/USER**: The person who WROTE and SENT this email (the user we're building a profile for)
+  - **RECIPIENT**: The person who RECEIVED this email
+  - **EMAIL FLOW**: USER → EMAIL → RECIPIENT
+
+  ## CRITICAL INSIGHT DIRECTION:
+  You are extracting insights ABOUT THE USER (sender) based on what THEY wrote and sent.
+
+  ## EXAMPLES OF CORRECT ANALYSIS:
+
+  **Email FROM user to client:**
+  - ✅ CORRECT: "User provides consulting services to ABC Corp (email from 2025-01-15)"
+  - ✅ CORRECT: "User has business relationship with John Smith <john@abc.com> (email from 2025-01-15)"
+
+  **Email FROM user to friend:**
+  - ✅ CORRECT: "User is planning vacation to Hawaii (email from 2025-01-15)"
+  - ✅ CORRECT: "User has personal relationship with Sarah Jones <sarah@gmail.com> (email from 2025-01-15)"
+
+  Focus on what the user reveals about themselves through their own words and actions.
+
+user: |
+  Extract PROFILE-WORTHY insights about the USER (email author) from this sent email they wrote. Focus on standalone facts that would be useful in a personal profile, not temporary email details or transaction summaries.
+
+  **Today's Date:** {{todaysDate}}
+  **Email Date:** {{emailDate}}
   
   **EMAIL METADATA:**
   Subject: {{emailMetadata.subject}}
@@ -98,6 +125,13 @@ user: |
 
   **EMAIL CONTENT:**
   {{emailContent}}
+
+  ## TEMPORAL CONTEXT:
+  Consider the age of this sent email when extracting insights:
+  - **Recent (within 6 months):** Likely current information about user
+  - **Older (6+ months):** May reflect past state, include temporal context
+  
+  Always include "email from {{emailDate}}" in insights to show when information was disclosed.
 
   ## MULTI-STEP REASONING PROCESS:
 
@@ -252,7 +286,7 @@ user: |
 
   For each insight format as:
   ```
-  insight: "[Confidence language] [specific fact] (as of {{emailDate}})"
+  insight: "[Confidence language] [specific fact] (email from {{emailDate}})"
   evidence: "[exact quote from user's own words]"
   extractedOn: "{{emailDate}}"
   reasoning: "[Brief explanation of confidence level based on directness, context, plausibility]"

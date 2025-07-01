@@ -1,0 +1,153 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.2
+response_format:
+  type: json_object
+input:
+  schema:
+    type: object
+    properties:
+      emailContent: 
+        type: string
+      emailDate:
+        type: string
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format for temporal context"
+      emailMetadata:
+        type: object
+        properties:
+          subject:
+            type: string
+          sender:
+            type: string
+          senderDomain:
+            type: string
+          to:
+            type: string
+        required: [subject, sender, senderDomain]
+    required: [emailContent, emailDate, todaysDate, emailMetadata]
+output:
+  schema:
+    type: object
+    properties:
+      inferences:
+        type: array
+        items:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: string
+                enum: [basic, professional, relationships, communication, behavioral, goals]
+              maxItems: 2
+              minItems: 1
+            insight:
+              type: string
+            confidence:
+              type: number
+              minimum: 0.6
+              maximum: 1
+            evidence:
+              type: string
+            extractedOn:
+              type: string
+            reasoning:
+              type: string
+          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
+    required: [inferences]
+---
+system: |
+  You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
+
+  ## EMAIL DIRECTION UNDERSTANDING:
+  - **SENDER**: The person/organization who WROTE and SENT this email TO the user
+  - **RECIPIENT/USER**: The person who RECEIVED this email (the user we're building a profile for)  
+  - **EMAIL FLOW**: SENDER → EMAIL → RECIPIENT/USER
+
+  ## CRITICAL INSIGHT DIRECTION:
+  You are extracting insights ABOUT THE USER (recipient) based on what the SENDER reveals about them.
+
+  ## EXAMPLES OF CORRECT ANALYSIS:
+  
+  **Email TO user from BMW salesperson:**
+  - ✅ CORRECT: "User is in market for vehicle purchase (email from 2025-01-15)"
+  - ❌ WRONG: "Sender works at BMW" (this is about sender, not user)
+
+  **Email TO user from colleague:**
+  - ✅ CORRECT: "User works at ABC Company as manager (email from 2025-01-15)"  
+  - ❌ WRONG: "Sender has questions about project" (this is about sender, not user)
+
+  **Email TO user from client:**
+  - ✅ CORRECT: "User provides consulting services to XYZ Corp (email from 2025-01-15)"
+  - ❌ WRONG: "Client needs help with project" (this is about sender, not user)
+
+  ## RELATIONSHIP EXTRACTION RULES:
+  When someone emails the user, that person becomes a contact/relationship:
+  - "User has business relationship with [Sender Name] <sender@email.com> (email from {{emailDate}})"
+
+  Focus exclusively on what the email reveals ABOUT THE USER, not about the sender.
+
+user: |
+  Extract professional insights ABOUT THE USER from this work-related email that was SENT TO them.
+
+  **Today's Date:** {{todaysDate}}
+  **Email Date:** {{emailDate}}
+  **From:** {{emailMetadata.sender}}
+  **To:** {{emailMetadata.to}}
+  **Subject:** {{emailMetadata.subject}}
+
+  **Email Content:**
+  {{emailContent}}
+
+  ## TEMPORAL CONTEXT:
+  Consider email age for professional information relevance:
+  - **Recent (within 1 year):** Likely current work situation
+  - **Older (1+ years):** May indicate past role/company, lower confidence
+
+  ## PROFESSIONAL EMAIL EXTRACTION:
+
+  **Work Relationships (relationships):**
+  - Extract sender as business contact with full email (email from {{emailDate}})
+  - Colleagues, managers, direct reports mentioned
+  - Client/vendor relationships
+  - **CONSERVATIVE:** "User has business relationship with [Name] <email> (email from {{emailDate}})"
+
+  **Professional Context (professional):**
+  - Company names where user works (mentioned by colleagues) (email from {{emailDate}})
+  - Job titles/roles referenced by others about user
+  - Projects user is involved in (mentioned by others)
+  - Skills/expertise others attribute to user
+
+  **Work Communication (communication):**
+  - How colleagues communicate with user
+  - Professional communication preferences
+  - Meeting patterns, availability
+
+  **Work Goals (goals):**
+  - Project deadlines mentioned about user (email from {{emailDate}})
+  - Professional objectives others reference
+  - Work-related travel plans
+
+  ## PROFESSIONAL RELATIONSHIP CALIBRATION:
+  **Same company domain** = "User has colleague relationship with [Name] <email> (email from {{emailDate}})"
+  **Client/vendor context** = "User has business relationship with [Name] <email> (email from {{emailDate}})"
+  **Management context** = "User reports to/manages [Name] <email> (email from {{emailDate}})"
+
+  ## EXTRACTION PRINCIPLES:
+  - Don't overstate professional relationships
+  - Focus on what others say ABOUT user's work
+  - Distinguish between business contacts vs colleagues
+  - Include company context when available
+  - Include temporal context: "(email from {{emailDate}})"
+
+  ## CRITICAL:
+  - Always include full email: "Name <name@company.com>"
+  - Include temporal context: "(email from {{emailDate}})"
+  - Conservative relationship language
+  - Focus on user's role as understood by others
+  - Avoid inferring skills from discussion topics
+
+  Extract professional insights conservatively with temporal context. 

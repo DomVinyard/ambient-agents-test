@@ -1,5 +1,5 @@
 import { Box, VStack, Button, Text, List, ListItem, Spinner, Alert, AlertIcon, Badge, Flex } from '@chakra-ui/react';
-import { Mail, RefreshCw } from 'lucide-react';
+import { Mail, RefreshCw, Clock } from 'lucide-react';
 import { Email } from '../types';
 
 interface EmailListProps {
@@ -9,6 +9,7 @@ interface EmailListProps {
   onOpenFetchModal: () => void;
   isLoading: boolean;
   processingEmailIds: Set<string>;
+  queuedEmailIds: Set<string>;
   error: string | null;
   insightsByEmail: Record<string, any[]>;
 }
@@ -20,6 +21,7 @@ export default function EmailList({
   onOpenFetchModal,
   isLoading,
   processingEmailIds,
+  queuedEmailIds,
   error,
   insightsByEmail
 }: EmailListProps) {
@@ -37,7 +39,7 @@ export default function EmailList({
             loadingText={emails.length > 0 ? "Processing..." : "Fetching..."}
             w="100%"
           >
-            {emails.length > 0 ? 'Refetch Emails' : 'Fetch Emails'}
+            {emails.length > 0 ? 'Regenerate' : 'Generate'}
           </Button>
         </Box>
 
@@ -65,6 +67,7 @@ export default function EmailList({
             <List spacing={0}>
               {emails.map((email) => {
                 const isProcessing = processingEmailIds.has(email.id);
+                const isQueued = queuedEmailIds.has(email.id);
                 const insightCount = insightsByEmail[email.id]?.length || 0;
                 const hasInsights = insightCount > 0;
                 
@@ -75,14 +78,36 @@ export default function EmailList({
                     borderBottom="1px solid"
                     borderColor="gray.100"
                     cursor="pointer"
-                    bg={selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : 'white')}
-                    _hover={{ bg: selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : 'gray.50') }}
+                    bg={selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : (isQueued ? 'orange.50' : 'white'))}
+                    _hover={{ bg: selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : (isQueued ? 'orange.50' : 'gray.50')) }}
                     onClick={() => onEmailSelect(email.id)}
-                    opacity={isProcessing ? 0.8 : 1}
+                    opacity={isProcessing || isQueued ? 0.8 : 1}
                   >
                     <Flex justify="space-between" align="center">
-                      <Flex align="center" gap={2} flex="1">
-                        {(email.id in insightsByEmail) && (
+                      <Flex align="center" gap={2} flex="1" minW={0}>
+                        {isProcessing ? (
+                          <Box
+                            minW="18px"
+                            h="18px"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                            flexShrink={0}
+                          >
+                            <Spinner size="xs" color="purple.500" />
+                          </Box>
+                        ) : isQueued ? (
+                          <Box
+                            minW="18px"
+                            h="18px"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                            flexShrink={0}
+                          >
+                            <Clock size={14} color="#D69E2E" />
+                          </Box>
+                        ) : (email.id in insightsByEmail) && (
                           <Box
                             bg={hasInsights ? "red.500" : "gray.300"}
                             color={hasInsights ? "white" : "gray.600"}
@@ -94,22 +119,33 @@ export default function EmailList({
                             justifyContent="center"
                             fontSize="xs"
                             fontWeight="bold"
+                            flexShrink={0}
                           >
                             {insightCount}
                           </Box>
                         )}
-                        <Text fontSize="sm" fontWeight="medium" color="gray.800" noOfLines={1} flex="1">
+                        <Text 
+                          fontSize="sm" 
+                          fontWeight="medium" 
+                          color="gray.800" 
+                          noOfLines={1} 
+                          flex="1"
+                          minW={0}
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                        >
                           {email.subject}
                         </Text>
                       </Flex>
-                      <Flex align="center" gap={2}>
-                        {isProcessing && <Spinner size="sm" color="purple.500" />}
-                        <Badge 
-                          colorScheme={email.emailType === 'sent' ? 'green' : 'blue'} 
-                          size="sm"
-                        >
-                          {email.emailType === 'sent' ? 'SENT' : 'INBOX'}
-                        </Badge>
+                      <Flex align="center" gap={2} flexShrink={0}>
+                        {email.emailType === 'sent' && (
+                          <Badge 
+                            colorScheme="green" 
+                            size="sm"
+                          >
+                            SENT
+                          </Badge>
+                        )}
                       </Flex>
                     </Flex>
                     <Flex justify="space-between" align="center">

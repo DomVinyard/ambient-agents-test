@@ -1,0 +1,194 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.2
+response_format:
+  type: json_object
+input:
+  schema:
+    type: object
+    properties:
+      emailContent: 
+        type: string
+        description: "The main content/body of the email"
+      emailDate:
+        type: string
+        description: "The date this email was sent/received in YYYY-MM-DD format"
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format for temporal context"
+      emailMetadata:
+        type: object
+        properties:
+          subject:
+            type: string
+            description: "Email subject line"
+          sender:
+            type: string
+            description: "Full sender information (Name <email@domain.com>)"
+          senderDomain:
+            type: string
+            description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
+          to:
+            type: string
+            description: "Recipients in To field"
+        required: [subject, sender, senderDomain]
+    required: [emailContent, emailDate, todaysDate, emailMetadata]
+output:
+  schema:
+    type: object
+    properties:
+      inferences:
+        type: array
+        items:
+          type: object
+          properties:
+            categories:
+              type: array
+              items:
+                type: string
+                enum: [accounts, personal, professional]
+              description: "Newsletter insights: subscription (accounts) and topic interests (personal/professional)"
+              maxItems: 2
+              minItems: 1
+            insight:
+              type: string
+              description: "Factual statement about subscription relationship only"
+            confidence:
+              type: number
+              minimum: 0.7
+              maximum: 1
+              description: "Confidence level - newsletters have reliable subscription evidence"
+            evidence:
+              type: string
+              description: "Evidence of the subscription relationship"
+            extractedOn:
+              type: string
+              description: "The email date for temporal context"
+            reasoning:
+              type: string
+              description: "Brief explanation of why this is a subscription relationship"
+          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
+    required: [inferences]
+---
+system: |
+  You are analyzing newsletter/content emails that were RECEIVED by the user, meaning an author/publisher SENT them TO the user.
+
+  ## EMAIL DIRECTION UNDERSTANDING:
+  - **SENDER/AUTHOR**: The person/organization who WROTE and PUBLISHED this newsletter TO the user
+  - **RECIPIENT/USER**: The person who RECEIVED this newsletter (the user we're building a profile for)
+  - **EMAIL FLOW**: AUTHOR → NEWSLETTER → RECIPIENT/USER
+
+  ## CRITICAL INSIGHT DIRECTION:
+  You are extracting insights ABOUT THE USER (recipient) based on their SUBSCRIPTION to this content, NOT the author's content itself.
+
+  ## EXAMPLES OF CORRECT ANALYSIS:
+
+  **Newsletter TO user from tech author:**
+  - ✅ CORRECT: "User subscribes to technology newsletter (email from 2025-01-15)"
+  - ❌ WRONG: "Author went to tech conference" (this is about author, not user)
+
+  **Newsletter TO user from business publication:**
+  - ✅ CORRECT: "User has interest in business content based on subscription (email from 2025-01-15)"
+  - ❌ WRONG: "Author started a business" (this is about author's experience, not user's interest)
+
+  CRITICAL: All first-person content ("I", "my", "we") refers to the AUTHOR/PUBLISHER, NOT the user receiving the email.
+
+user: |
+  Extract subscription relationship insights and topic interests ABOUT THE USER from this newsletter that was SENT TO them.
+
+  **Today's Date:** {{todaysDate}}
+  **Email Date:** {{emailDate}}
+  **Subject:** {{emailMetadata.subject}}
+  **From:** {{emailMetadata.sender}}
+  **Domain:** {{emailMetadata.senderDomain}}
+
+  **Email Content:**
+  {{emailContent}}
+
+  ## NEWSLETTER EXTRACTION RULES:
+
+  ### **WHAT TO EXTRACT:**
+  
+  **Subscription Relationship (accounts):**
+  ✅ **Subscription relationship:** User subscribes to this publication
+  ✅ **Publication name:** Extract from sender name or email signature
+  ✅ **Platform information:** Substack, Medium, Beehiiv, etc.
+  
+  **Topic Interests (personal/professional):**
+  ✅ **Newsletter topic interest:** User shows interest in [newsletter's stated topic/focus]
+  ✅ **Industry interest:** For professional/industry newsletters
+  ✅ **Personal interest areas:** For lifestyle, hobby, or general interest newsletters
+
+  ### **WHAT TO NEVER EXTRACT:**
+  ❌ **Author's personal experiences** - "I went to Cannes" ≠ user went to Cannes
+  ❌ **Author's background** - "I was a journalist" ≠ user is a journalist  
+  ❌ **Author's opinions** - Author's views ≠ user's views
+  ❌ **Content topics as user interests** - Newsletter about X ≠ user interested in X
+  ❌ **Events mentioned** - Author attends event ≠ user attends event
+  ❌ **Skills/expertise mentioned** - Author has skill ≠ user has skill
+  ❌ **Locations mentioned** - Author lives somewhere ≠ user lives there
+  ❌ **Any relationships mentioned** - Author knows someone ≠ user knows them
+
+  ## EXTRACTION PROCESS:
+
+  1. **Identify the publication:** What newsletter/publication is this?
+  2. **Confirm subscription:** Evidence that user receives this content
+  3. **Extract relationship only:** User's subscription to the publication
+
+  ## ACCEPTABLE INSIGHTS:
+
+  **Subscription Insights (accounts):**
+  - "It is very likely that the user subscribes to [Publication Name] newsletter/publication (email from {{emailDate}})"
+  - "It is very likely that the user has an account with [Platform] for content subscriptions (email from {{emailDate}})"
+
+  **Topic Interest Insights (personal/professional):**
+  - "It appears that the user has interest in [topic/industry] based on newsletter subscription (email from {{emailDate}})"
+  - "We think the user follows [topic] content based on subscription patterns (email from {{emailDate}})"
+
+  **Examples:**
+  - **Subscription:** "It is very likely that the user subscribes to Beyond Cannes publication (email from {{emailDate}})"
+  - **Topic Interest:** "It appears that the user has interest in film festivals and entertainment industry based on newsletter subscription (email from {{emailDate}})"
+  - **Professional Interest:** "We think the user follows marketing/advertising content based on subscription to industry newsletter (email from {{emailDate}})"
+
+  ## TEMPORAL CONTEXT:
+  Consider the age of the email when extracting insights:
+  - **Recent (within 3 months):** Full confidence, current subscription likely
+  - **Moderate age (3-12 months):** Good confidence, may still be subscribed
+  - **Old (12+ months):** Lower confidence, subscription may have lapsed
+  
+  Always include "email from {{emailDate}}" to show when the evidence was observed.
+
+  ## CONFIDENCE GUIDELINES:
+  
+  **Subscription Insights:**
+  - **90-100%:** Clear newsletter format with publication name (recent emails)
+  - **80-89%:** Newsletter format but publication name unclear, or older emails
+  - **70-79%:** Content publication but some ambiguity, or very old emails
+  
+  **Topic Interest Insights:**
+  - **70-80%:** Newsletter clearly focused on specific topic/industry (recent)
+  - **60-69%:** Newsletter topic apparent but somewhat broad, or older emails
+  - **50-59%:** General interest publication or very old emails
+
+  ## TOPIC INTEREST EXTRACTION GUIDELINES:
+  
+  **Base topic interests on:**
+  ✅ **Newsletter name/title** (e.g., "Tech Weekly" → technology interest)
+  ✅ **Stated publication focus** (e.g., "About film festivals" → entertainment interest)
+  ✅ **Sender organization** (e.g., "Marketing Institute" → marketing interest)
+  ✅ **Domain context** (e.g., industry publication domains)
+  
+  **Never base interests on:**
+  ❌ **Specific content details** - Individual article topics
+  ❌ **Author's personal mentions** - What author personally discusses
+  ❌ **One-off content** - Single newsletter edition topics
+  
+  ## CRITICAL REMINDERS:
+  - Newsletter content is BY the author ABOUT the author's experiences
+  - User receiving newsletter ≠ user having those experiences
+  - Extract subscription relationship + inferred topic interest only
+  - Topic interest should be based on newsletter's PURPOSE, not specific content
+  - Never extract insights from the author's personal stories or experiences
+
+  Extract subscription relationship and conservative topic interests. If no clear evidence exists, return empty inferences array. 

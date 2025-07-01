@@ -13,6 +13,7 @@ import FileList from './FileList';
 import FileEditor from './FileEditor';
 import { PusherReceiver } from './PusherReceiver';
 import FetchEmailsModal from './FetchEmailsModal';
+import MasterProgressBar from './MasterProgressBar';
 import { useFileManager } from '../hooks/useFileManager';
 import { Email, Insight } from '../types';
 import { storageService } from '../services/storage.service';
@@ -23,7 +24,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onLogout }: DashboardProps) {
-  const [status, setStatus] = useState<string>('');
+
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -31,7 +32,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [userInfo, setUserInfo] = useState<{ email: string; firstName: string; lastName: string } | null>(null);
   
   // Rate limiter for AI requests - limit to 10 concurrent AI calls
-  const aiLimit = pLimit(10);
+  const aiLimit = pLimit(20);
   
   // Loading states
   const [fetchingEmails, setFetchingEmails] = useState(false);
@@ -39,12 +40,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [applyingToBio, setApplyingToBio] = useState(false);
   const [buildingProfile, setBuildingProfile] = useState(false);
   const [processingEmailIds, setProcessingEmailIds] = useState<Set<string>>(new Set());
-  const [profileProgress, setProfileProgress] = useState<{
-    currentStep: string;
-    processed: number;
-    total: number;
-    errors: number;
-  } | null>(null);
+  const [queuedEmailIds, setQueuedEmailIds] = useState<Set<string>>(new Set());
+
   
   // Modal states
   const [fetchModalOpen, setFetchModalOpen] = useState(false);
@@ -53,6 +50,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [insightError, setInsightError] = useState<string | null>(null);
   const [bioError, setBioError] = useState<string | null>(null);
+  
+  // Compilation state
+  const [compilingProfile, setCompilingProfile] = useState(false);
+
+  // Master progress tracking for all 4 stages
+  const [masterProgress, setMasterProgress] = useState({
+    fetchProgress: null as { processed: number; total: number } | null,
+    insightsProgress: null as { processed: number; total: number } | null,
+    profileProgress: null as { processed: number; total: number } | null,
+    compileProgress: null as { processed: number; total: number } | null,
+    isEndToEndProcess: false
+  });
 
   const toast = useToast();
   
@@ -142,6 +151,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setFetchingEmails(true);
     setEmailError(null);
     setFetchModalOpen(false);
+
+    // Start master progress tracking if this is an end-to-end build
+    if (options.buildProfile) {
+      setMasterProgress(prev => ({ ...prev, isEndToEndProcess: true }));
+    }
     
     // Delete profile files if requested
     if (options.deleteProfileFiles) {
@@ -154,6 +168,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setInsights([]);
     setInsightsByEmail({});
     setInsightError(null);
+    setProcessingEmailIds(new Set());
+    setQueuedEmailIds(new Set());
     
     // Clear insights from localStorage
     localStorage.removeItem('ambient-agents-insights');
@@ -172,24 +188,22 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setEmails(newEmails);
       setUserInfo(response.data.userInfo);
       
-      // Store emails in IndexedDB
+      // Clear existing insights when fetching new emails
+      setInsightsByEmail({});
+      
+      // Store emails in IndexedDB and clear insights
       console.log(`Storing ${newEmails.length} emails in IndexedDB...`);
       await Promise.all([
         storageService.setEmails(newEmails),
-        storageService.setUserInfo(response.data.userInfo)
+        storageService.setUserInfo(response.data.userInfo),
+        storageService.setInsights({}) // Clear insights
       ]);
       
-      toast({
-        title: 'Emails Fetched',
-        description: `Loaded ${newEmails.length} recent emails.`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+
 
       // If buildProfile is enabled, automatically build profile after fetching
       if (options.buildProfile && newEmails.length > 0) {
-        await handleBuildProfile();
+        await handleBuildProfile(newEmails, response.data.userInfo);
       }
       
     } catch (error) {
@@ -204,6 +218,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
     } finally {
       setFetchingEmails(false);
+      
+      // Clear master progress if there was an error and not continuing with build
+      if (!options.buildProfile) {
+        setMasterProgress(prev => ({
+          ...prev,
+          isEndToEndProcess: false,
+          fetchProgress: null
+        }));
+      }
     }
   };
 
@@ -219,7 +242,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const clearedInsights = { ...insightsByEmail };
       delete clearedInsights[selectedEmailId];
       setInsightsByEmail(clearedInsights);
-      localStorage.setItem('ambient-agents-insights', JSON.stringify(clearedInsights));
+      await storageService.setInsights(clearedInsights);
     }
     
     try {
@@ -245,13 +268,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       // Store insights in IndexedDB
       await storageService.setInsights(updatedInsightsByEmail);
       
-      toast({
-        title: 'Insights Extracted',
-        description: `Found ${newInsights.length} insights from this email.`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+
       
     } catch (error) {
       console.error('Error extracting insights:', error);
@@ -268,34 +285,55 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const handleBuildProfile = async () => {
-    if (emails.length === 0 || !userInfo) return;
+  const handleBuildProfile = async (emailsToProcess?: any[], userInfoToUse?: any) => {
+    const currentEmails = emailsToProcess || emails;
+    const currentUserInfo = userInfoToUse || userInfo;
     
-    setBuildingProfile(true);
-    setBioError(null);
-    setProcessingEmailIds(new Set());
-    setProfileProgress({
-      currentStep: 'Extracting insights from emails',
-      processed: 0,
-      total: emails.length,
-      errors: 0
-    });
+    if (currentEmails.length === 0) {
+      toast({
+        title: 'No emails available',
+        description: 'Please fetch emails first.',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    console.log(`🚀 Starting profile building with ${currentEmails.length} emails. Auto-clearing existing insights.`);
+    
+    // Always clear insights when building profile to ensure fresh start
+    setInsightsByEmail({});
+    await storageService.setInsights({});
+
+    // Update master progress for insights stage (and mark fetch as complete if coming from end-to-end)
+    setMasterProgress(prev => ({
+      ...prev,
+      fetchProgress: prev.isEndToEndProcess ? { processed: 1, total: 1 } : prev.fetchProgress, // Mark fetch complete
+      insightsProgress: { processed: 0, total: currentEmails.length }
+    }));
     
     try {
       const tokens = getAuthTokens();
       
       // Step 1: Extract insights from all emails with rate limiting
-      console.log(`Starting to process ${emails.length} emails with AI rate limiting (max 10 concurrent)`);
+      console.log(`Starting to process ${currentEmails.length} emails with AI rate limiting (max 10 concurrent)`);
       
       let processedCount = 0;
       let currentErrorCount = 0;
       
-      const extractPromises = emails.map((email, index) => 
+      const extractPromises = currentEmails.slice().map((email, index) => 
         aiLimit(async () => {
+          // Move email from queued to processing
+          setQueuedEmailIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(email.id);
+            return newSet;
+          });
           setProcessingEmailIds(prev => new Set([...prev, email.id]));
           
           try {
-            console.log(`Processing email ${index + 1}/${emails.length}: ${email.subject.substring(0, 50)}...`);
+            console.log(`Processing email ${index + 1}/${currentEmails.length}: ${email.subject.substring(0, 50)}...`);
             
             const response = await axios.post('http://localhost:3001/api/gmail/extract-insights', {
               tokens,
@@ -327,17 +365,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           const errorMsg = error?.response?.data?.error || error?.message || 'Unknown error';
           console.error(`❌ Failed to extract insights from email "${email.subject}":`, errorMsg);
           
-          // Show a toast for debugging if many errors
-          if (index < 5) { // Only show first 5 errors to avoid spam
-            toast({
-              title: `Failed to process: ${email.subject.substring(0, 30)}...`,
-              description: errorMsg,
-              status: 'warning',
-              duration: 2000,
-              isClosable: true,
-            });
-          }
-          
           currentErrorCount++;
           
           return {
@@ -353,11 +380,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           
           // Update progress in real-time
           processedCount++;
-          setProfileProgress(prev => prev ? {
+          
+          // Update master progress for insights
+          setMasterProgress(prev => ({
             ...prev,
-            processed: processedCount,
-            errors: currentErrorCount
-          } : null);
+            insightsProgress: { processed: processedCount, total: currentEmails.length }
+          }));
         }
       })
     );
@@ -366,13 +394,6 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       
       // Count successes (errors already tracked in real-time)
       const successfulEmails = extractResults.filter(r => r.insights.length > 0).length;
-      
-      setProfileProgress({
-        currentStep: 'Aggregating insights by category',
-        processed: emails.length,
-        total: emails.length,
-        errors: currentErrorCount
-      });
       
       // Step 2: Aggregate all insights and group by category
       const allInsights: any[] = [];
@@ -393,14 +414,19 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         });
       });
       
-      // Step 3: Apply insights to profile files in parallel
+      // Step 3: Apply insights to profile files with progress tracking
       const categoryCount = Object.keys(insightsByCategory).length;
-      setProfileProgress({
-        currentStep: 'Generating profile files',
-        processed: 0,
-        total: categoryCount,
-        errors: currentErrorCount
-      });
+
+      // Update master progress for profile generation stage (and mark insights as complete)
+      setMasterProgress(prev => ({
+        ...prev,
+        insightsProgress: { processed: currentEmails.length, total: currentEmails.length }, // Mark complete
+        profileProgress: { processed: 0, total: categoryCount }
+      }));
+      
+      let profileProcessedCount = 0;
+      let profileErrorCount = 0;
+      const generatedProfileFiles: Record<string, string> = {};
       
       const applyPromises = Object.entries(insightsByCategory).map(async ([category, categoryInsights]: [string, any[]]) => {
         const fileName = `${category}.md`;
@@ -412,17 +438,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             category,
             newInsights: categoryInsights,
             existingContent: existingFile?.content || null,
-            userInfo,
+            userInfo: currentUserInfo,
             sessionId: 'default'
           });
           
           const blendedContent = response.data.content;
           createOrUpdateFile(fileName, blendedContent);
           
+          // Store for compilation step
+          generatedProfileFiles[fileName] = blendedContent;
+          
           return { category, success: true };
         } catch (error) {
           console.error(`Error applying insights to ${category}:`, error);
+          profileErrorCount++;
           return { category, success: false };
+        } finally {
+          profileProcessedCount++;
+          
+          // Update master progress for profile generation
+          setMasterProgress(prev => ({
+            ...prev,
+            profileProgress: { processed: profileProcessedCount, total: categoryCount }
+          }));
         }
       });
       
@@ -430,31 +468,93 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const successfulCategories = applyResults.filter(r => r.success).length;
       const totalCategories = applyResults.length;
       
-      const resultStatus = currentErrorCount > 0 ? 'warning' : 'success';
-      const resultTitle = currentErrorCount > 0 ? 'Profile Built with Some Errors' : 'Profile Built Successfully';
+      // Step 4: Auto-compile profile files
+      console.log(`📊 Profile generation complete. ${successfulCategories}/${totalCategories} categories successful. Starting compilation...`);
+      if (successfulCategories > 0) {
+
+        // Update master progress for compilation stage (and mark profile generation as complete)
+        setMasterProgress(prev => ({
+          ...prev,
+          profileProgress: { processed: categoryCount, total: categoryCount }, // Mark complete
+          compileProgress: { processed: 0, total: 2 }
+        }));
+        
+        try {
+          // Use the generated profile files from this run
+          const profileFiles = generatedProfileFiles;
+          console.log(`🔧 Starting compilation with ${Object.keys(profileFiles).length} profile files:`, Object.keys(profileFiles));
+          
+          if (Object.keys(profileFiles).length > 0) {
+            // Run both compilation tasks in parallel
+            const [compileResponse, automationResponse] = await Promise.all([
+              axios.post('http://localhost:3001/api/ai/compile-profile', {
+                tokens,
+                profileFiles,
+                userInfo: currentUserInfo,
+                sessionId: 'default'
+              }),
+              axios.post('http://localhost:3001/api/ai/analyze-automation', {
+                tokens,
+                profileFiles,
+                userInfo: currentUserInfo,
+                sessionId: 'default'
+              })
+            ]);
+            
+            const compiledContent = compileResponse.data.content;
+            const automationContent = automationResponse.data.content;
+            
+            // Create both files
+            createOrUpdateFile('full.md', compiledContent);
+            createOrUpdateFile('automation.md', automationContent);
+            
+            // Update master progress for compilation completion
+            setMasterProgress(prev => ({
+              ...prev,
+              compileProgress: { processed: 2, total: 2 }
+            }));
+            
+            console.log(`✅ Profile compilation complete! Generated ${Object.keys(profileFiles).length} category files plus full.md and automation.md`);
+          }
+        } catch (error) {
+          console.error('Error during auto-compilation:', error);
+        }
+      }
+      
+      // Calculate and show final results
+      const resultStatus = (currentErrorCount + profileErrorCount) > 0 ? 'warning' : 'success';
+      
+      // Clear master progress after a delay
+      setTimeout(() => {
+        setMasterProgress(prev => ({
+          ...prev,
+          isEndToEndProcess: false,
+          fetchProgress: null,
+          insightsProgress: null,
+          profileProgress: null,
+          compileProgress: null
+        }));
+      }, 3000);
       
       toast({
-        title: resultTitle,
-        description: `Processed ${allInsights.length} insights from ${successfulEmails}/${emails.length} emails${currentErrorCount > 0 ? ` (${currentErrorCount} failed)` : ''} and updated ${successfulCategories}/${totalCategories} profile categories.`,
+        title: 'Profile Building Complete',
+        description: `Generated ${totalCategories} profile files from ${successfulEmails}/${currentEmails.length} emails`,
         status: resultStatus,
         duration: 5000,
         isClosable: true,
       });
       
     } catch (error) {
-      console.error('Error building profile:', error);
-      setBioError('Failed to build profile. Please try again.');
+      console.error('❌ Profile building failed:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to build profile. Please try again.',
+        title: 'Profile Building Failed',
+        description: 'An error occurred while building the profile.',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       });
     } finally {
       setBuildingProfile(false);
-      setProcessingEmailIds(new Set());
-      setProfileProgress(null);
     }
   };
 
@@ -499,13 +599,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         createOrUpdateFile(fileName, blendedContent);
       }
       
-      toast({
-        title: 'Applied to Bio',
-        description: `Intelligently updated ${Object.keys(insightsByCategory).length} category file(s) using AI. Some insights were applied to multiple categories.`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+
       
     } catch (error) {
       console.error('Error applying to bio:', error);
@@ -539,6 +633,70 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         duration: 3000,
         isClosable: true,
       });
+    }
+  };
+
+  const handleCompileProfile = async () => {
+    setCompilingProfile(true);
+    
+    try {
+      const tokens = getAuthTokens();
+      
+      // Get all profile files except compiled ones ('full.md', 'automation.md')
+      const profileFiles = Object.entries(files)
+        .filter(([fileName]) => !['full.md', 'automation.md'].includes(fileName))
+        .reduce((acc, [fileName, file]) => {
+          acc[fileName] = file.content;
+          return acc;
+        }, {} as Record<string, string>);
+      
+      if (Object.keys(profileFiles).length === 0) {
+        toast({
+          title: 'No Profile Files',
+          description: 'You need to create some profile files first.',
+          status: 'warning',
+          duration: 3000,
+          isClosable: true,
+        });
+        return;
+      }
+      
+      // Run both compilation tasks in parallel
+      const [compileResponse, automationResponse] = await Promise.all([
+        axios.post('http://localhost:3001/api/ai/compile-profile', {
+          tokens,
+          profileFiles,
+          userInfo,
+          sessionId: 'default'
+        }),
+        axios.post('http://localhost:3001/api/ai/analyze-automation', {
+          tokens,
+          profileFiles,
+          userInfo,
+          sessionId: 'default'
+        })
+      ]);
+      
+      const compiledContent = compileResponse.data.content;
+      const automationContent = automationResponse.data.content;
+      
+      // Create both files
+      createOrUpdateFile('full.md', compiledContent);
+      createOrUpdateFile('automation.md', automationContent);
+      
+
+      
+    } catch (error) {
+      console.error('Error compiling profile:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to compile profile. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setCompilingProfile(false);
     }
   };
 
@@ -590,14 +748,17 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     <Box h="100vh" bg="gray.50">
       <PusherReceiver 
         sessionId="default"
-        onStatusUpdate={setStatus}
+        onMasterProgressUpdate={(stage, progress) => {
+          setMasterProgress(prev => ({
+            ...prev,
+            [stage]: progress
+          }));
+        }}
       />
       
       <Toolbar 
         onLogout={onLogout}
         onDeleteAllData={handleDeleteAllData}
-        status={status}
-        profileProgress={profileProgress}
       />
 
       <FetchEmailsModal
@@ -618,6 +779,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             onOpenFetchModal={() => setFetchModalOpen(true)}
             isLoading={fetchingEmails || buildingProfile}
             processingEmailIds={processingEmailIds}
+            queuedEmailIds={queuedEmailIds}
             error={emailError}
             insightsByEmail={insightsByEmail}
           />
@@ -655,18 +817,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           <Box w="20%" h="100%" bg="gray.100" borderRight="1px solid" borderColor="gray.200" />
         )}
         
-        <Box w={Object.keys(files).length === 0 ? "40%" : "20%"} h="100%">
+        <Box w={Object.keys(files).length === 0 ? "40%" : "13.33%"} h="100%">
           <FileList
             files={files}
             selectedFile={selectedFileItem}
             onFileSelect={handleFileSelect}
             onDeleteFile={handleDeleteFile}
             onDeleteAll={handleDeleteAllFiles}
+            onCompileProfile={handleCompileProfile}
+            isCompiling={compilingProfile}
           />
         </Box>
         
         {Object.keys(files).length > 0 && (
-          <Box w="20%" h="100%">
+          <Box w="26.67%" h="100%">
             <FileEditor
               file={selectedFileItem}
               onSave={handleSaveFile}
@@ -674,6 +838,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           </Box>
         )}
       </Flex>
+
+      <MasterProgressBar
+        fetchProgress={masterProgress.fetchProgress}
+        insightsProgress={masterProgress.insightsProgress}
+        profileProgress={masterProgress.profileProgress}
+        compileProgress={masterProgress.compileProgress}
+        isVisible={masterProgress.isEndToEndProcess}
+      />
     </Box>
   );
 } 

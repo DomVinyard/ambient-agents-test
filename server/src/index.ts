@@ -270,6 +270,76 @@ app.post('/api/ai/blend-profile', async (req, res) => {
   }
 });
 
+// Compile all profile files into a comprehensive profile (new endpoint)
+app.post('/api/ai/compile-profile', async (req, res) => {
+  const { tokens, profileFiles, userInfo } = req.body;
+  const sessionId = getSessionId(req);
+  console.log(`Compiling profile for session: ${sessionId}, files: ${Object.keys(profileFiles).join(', ')}`);
+
+  if (!tokens || !profileFiles || !userInfo) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    await pusherService.trigger(`${sessionId}`, 'compile-start', { 
+      fileCount: Object.keys(profileFiles).length 
+    });
+
+    const compiledContent = await aiService.compileProfile({
+      profileFiles,
+      userInfo
+    });
+    
+    await pusherService.trigger(`${sessionId}`, 'compile-complete', {
+      wordCount: compiledContent.split(' ').length
+    });
+    
+    res.json({ content: compiledContent });
+
+  } catch (err) {
+    console.error('Error compiling profile:', err);
+    await pusherService.trigger(`${sessionId}`, 'compile-error', {
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+    res.status(500).json({ error: 'Failed to compile profile', details: err instanceof Error ? err.message : err });
+  }
+});
+
+// Analyze automation opportunities from profile files (new endpoint)
+app.post('/api/ai/analyze-automation', async (req, res) => {
+  const { tokens, profileFiles, userInfo } = req.body;
+  const sessionId = getSessionId(req);
+  console.log(`Analyzing automation opportunities for session: ${sessionId}, files: ${Object.keys(profileFiles).join(', ')}`);
+
+  if (!tokens || !profileFiles || !userInfo) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    await pusherService.trigger(`${sessionId}`, 'automation-start', { 
+      fileCount: Object.keys(profileFiles).length 
+    });
+
+    const automationContent = await aiService.analyzeAutomation({
+      profileFiles,
+      userInfo
+    });
+    
+    await pusherService.trigger(`${sessionId}`, 'automation-complete', {
+      wordCount: automationContent.split(' ').length
+    });
+    
+    res.json({ content: automationContent });
+
+  } catch (err) {
+    console.error('Error analyzing automation opportunities:', err);
+    await pusherService.trigger(`${sessionId}`, 'automation-error', {
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+    res.status(500).json({ error: 'Failed to analyze automation opportunities', details: err instanceof Error ? err.message : err });
+  }
+});
+
 // Start server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

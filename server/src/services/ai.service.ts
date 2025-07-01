@@ -71,7 +71,7 @@ export class AIService {
   }
 
   /**
-   * Process a single email to extract insights about the user
+   * Process a single email to extract insights about the user using prompt chain
    */
   async processMessage(emailObj: any, userId: string): Promise<{ inferences: any[] }> {
     try {
@@ -84,7 +84,6 @@ export class AIService {
         emailContent = extractEmailContent(emailObj);
         console.log('⚠️ Extracting content from email object (fullBody not available)');
       }
-      
       
       // Extract email date from the email object
       let emailDate: string;
@@ -128,30 +127,103 @@ export class AIService {
         emailType: emailObj.emailType || 'inbox'
       };
 
+      // For sent emails, use the existing prompt
+      if (emailObj.emailType === 'sent') {
+        const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        const { modelName, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate
+        });
 
-      
-      // Determine which prompt file to use based on email type
-      const promptFilename = emailObj.emailType === 'sent' 
-        ? 'extract-insights-sent'
-        : 'extract-insights-received';
-      
-      // Load and render the appropriate prompt
-      const { modelName, promptText, schema, config } = await this.loadPromptFile(promptFilename, {
-        emailContent,
-        emailDate,
-        emailMetadata
-      });
+        const result = await generateObject({
+          model: openai(modelName),
+          schema,
+          prompt: promptText,
+          ...config
+        });
 
-      const result = await generateObject({
-        model: openai(modelName),
-        schema,
-        prompt: promptText,
-        ...config  // Include any additional config from the prompt file
-      });
+        return { inferences: result.object.inferences };
+      }
 
-      return { inferences: result.object.inferences };
+      // For received emails, use the new prompt chain
+      return await this.processReceivedEmailChain(emailContent, emailDate, emailMetadata);
+
     } catch (error) {
       console.error('Error in AI processMessage:', error);
+      return { inferences: [] };
+    }
+  }
+
+  /**
+   * Process received emails using the classification + specialized extraction chain
+   */
+  private async processReceivedEmailChain(
+    emailContent: string, 
+    emailDate: string, 
+    emailMetadata: any
+  ): Promise<{ inferences: any[] }> {
+    try {
+      const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Step 1: Classify the email type
+      console.log('🔍 Classifying email type...');
+      const { modelName: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
+        await this.loadPromptFile('received/classify-email', {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate
+        });
+
+      const classifyResult = await generateObject({
+        model: openai(classifyModel),
+        schema: classifySchema,
+        prompt: classifyPrompt,
+        ...classifyConfig
+      });
+
+      const { emailType, confidence, reasoning } = classifyResult.object;
+      console.log(`📋 Email classified as: ${emailType} (confidence: ${confidence}) - ${reasoning}`);
+
+      // Step 2: Route to specialized extraction prompt
+      const extractPromptMap = {
+        'newsletter': 'received/extract-newsletter',
+        'service': 'received/extract-service', 
+        'personal': 'received/extract-personal',
+        'professional': 'received/extract-professional'
+      };
+
+      const extractPromptName = extractPromptMap[emailType as keyof typeof extractPromptMap];
+      if (!extractPromptName) {
+        console.warn(`⚠️ Unknown email type: ${emailType}, skipping extraction`);
+        return { inferences: [] };
+      }
+
+      console.log(`⚡ Using specialized prompt: ${extractPromptName}`);
+      const { modelName: extractModel, promptText: extractPrompt, schema: extractSchema, config: extractConfig } = 
+        await this.loadPromptFile(extractPromptName, {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate
+        });
+
+      const extractResult = await generateObject({
+        model: openai(extractModel),
+        schema: extractSchema,
+        prompt: extractPrompt,
+        ...extractConfig
+      });
+
+      console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${emailType} prompt`);
+      return { inferences: extractResult.object.inferences };
+
+    } catch (error) {
+      console.error('Error in received email chain:', error);
+      // Fallback to empty results rather than failing completely
       return { inferences: [] };
     }
   }
@@ -212,6 +284,76 @@ export class AIService {
 
     } catch (error) {
       console.error('Error in AI blendProfile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Compile all profile files into a comprehensive super profile
+   */
+  async compileProfile({
+    profileFiles,
+    userInfo
+  }: {
+    profileFiles: Record<string, string>;
+    userInfo: any;
+  }): Promise<string> {
+    try {
+      const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Load and render the compile-profile prompt
+      const { modelName, promptText, schema, config } = await this.loadPromptFile('compile-profile', {
+        profileFiles,
+        userInfo,
+        todaysDate
+      });
+
+      const result = await generateObject({
+        model: openai(modelName),
+        schema,
+        prompt: promptText,
+        ...config
+      });
+
+      return result.object.content;
+
+    } catch (error) {
+      console.error('Error in AI compileProfile:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze profile files to suggest automation opportunities using background agents
+   */
+  async analyzeAutomation({
+    profileFiles,
+    userInfo
+  }: {
+    profileFiles: Record<string, string>;
+    userInfo: any;
+  }): Promise<string> {
+    try {
+      const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Load and render the analyze-automation prompt
+      const { modelName, promptText, schema, config } = await this.loadPromptFile('analyze-automation', {
+        profileFiles,
+        userInfo,
+        todaysDate
+      });
+
+      const result = await generateObject({
+        model: openai(modelName),
+        schema,
+        prompt: promptText,
+        ...config
+      });
+
+      return result.object.content;
+
+    } catch (error) {
+      console.error('Error in AI analyzeAutomation:', error);
       throw error;
     }
   }

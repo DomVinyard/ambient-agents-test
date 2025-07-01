@@ -43,9 +43,7 @@ class PusherService {
      */
     async trigger(channel: string, event: string, data: any) {
         try {
-            console.log(`📤 Sending Pusher event: ${event} to channel: ${channel}`, data);
             const result = await this.pusher.trigger(channel, event, data);
-            console.log(`✅ Pusher event sent successfully`);
             return result;
         } catch (error) {
             console.error('❌ Error triggering Pusher event:', error);

@@ -3,10 +3,17 @@ import Pusher from 'pusher-js';
 
 interface PusherReceiverProps {
   sessionId: string;
-  onStatusUpdate: (status: string) => void;
+  onStatusUpdate?: (status: string) => void;
+  onProgressUpdate?: (progress: {
+    currentStep: string;
+    processed: number;
+    total: number;
+    errors: number;
+  } | null) => void;
+  onMasterProgressUpdate?: (stage: string, progress: { processed: number; total: number } | null) => void;
 }
 
-export function PusherReceiver({ sessionId, onStatusUpdate }: PusherReceiverProps) {
+export function PusherReceiver({ sessionId, onStatusUpdate, onProgressUpdate, onMasterProgressUpdate }: PusherReceiverProps) {
   useEffect(() => {
     const pusherKey = import.meta.env.VITE_PUSHER_KEY;
     const pusherCluster = import.meta.env.VITE_PUSHER_CLUSTER || 'us2';
@@ -57,77 +64,114 @@ export function PusherReceiver({ sessionId, onStatusUpdate }: PusherReceiverProp
     // Email fetching events
     channel.bind('fetch-start', (data: any) => {
       console.log('Email fetch started:', data);
-      onStatusUpdate('Fetching emails...');
+      onStatusUpdate?.('Fetching emails...');
+      if (onProgressUpdate) {
+        onProgressUpdate({
+          currentStep: 'Fetching emails from Gmail',
+          processed: 0,
+          total: 1, // Will be updated when we know the total
+          errors: 0
+        });
+      }
+      if (onMasterProgressUpdate) {
+        onMasterProgressUpdate('fetchProgress', { processed: 0, total: 1 });
+      }
     });
 
     channel.bind('fetch-progress', (data: any) => {
       console.log('Email fetch progress:', data);
-      onStatusUpdate(`Fetching emails... ${data.fetched}/${data.total}`);
+      onStatusUpdate?.(`Fetching emails... ${data.fetched}/${data.total}`);
+      if (onProgressUpdate) {
+        onProgressUpdate({
+          currentStep: 'Fetching emails from Gmail',
+          processed: data.fetched || 0,
+          total: data.total || 1,
+          errors: 0
+        });
+      }
+      if (onMasterProgressUpdate) {
+        onMasterProgressUpdate('fetchProgress', {
+          processed: data.fetched || 0,
+          total: data.total || 1
+        });
+      }
     });
 
     channel.bind('fetch-complete', (data: any) => {
       console.log('Email fetch complete:', data);
-      onStatusUpdate(`✓ Fetched ${data.totalEmails} emails (${data.inboxCount || 0} inbox, ${data.sentCount || 0} sent)`);
-      setTimeout(() => onStatusUpdate(''), 5000);
+      onStatusUpdate?.(`✓ Fetched ${data.totalEmails} emails (${data.inboxCount || 0} inbox, ${data.sentCount || 0} sent)`);
+      if (onProgressUpdate) {
+        onProgressUpdate(null); // Clear progress when complete
+      }
+      if (onMasterProgressUpdate) {
+        onMasterProgressUpdate('fetchProgress', null);
+      }
+      setTimeout(() => onStatusUpdate?.(''), 5000);
     });
 
     channel.bind('fetch-error', (data: any) => {
       console.log('Email fetch error:', data);
-      onStatusUpdate('Error fetching emails');
-      setTimeout(() => onStatusUpdate(''), 5000);
+      onStatusUpdate?.('Error fetching emails');
+      if (onProgressUpdate) {
+        onProgressUpdate(null); // Clear progress on error
+      }
+      if (onMasterProgressUpdate) {
+        onMasterProgressUpdate('fetchProgress', null);
+      }
+      setTimeout(() => onStatusUpdate?.(''), 5000);
     });
 
     // Insights extraction events
     channel.bind('insights-start', (data: any) => {
       console.log('Insights extraction started:', data);
-      onStatusUpdate('Extracting insights...');
+      onStatusUpdate?.('Extracting insights...');
     });
 
     channel.bind('insights-complete', (data: any) => {
       console.log('Insights extraction complete:', data);
-      onStatusUpdate(`✓ Extracted ${data.insightsCount} insights`);
-      setTimeout(() => onStatusUpdate(''), 5000);
+      onStatusUpdate?.(`✓ Extracted ${data.insightsCount} insights`);
+      setTimeout(() => onStatusUpdate?.(''), 5000);
     });
 
     channel.bind('insights-error', (data: any) => {
       console.log('Insights extraction error:', data);
-      onStatusUpdate('Error extracting insights');
-      setTimeout(() => onStatusUpdate(''), 5000);
+      onStatusUpdate?.('Error extracting insights');
+      setTimeout(() => onStatusUpdate?.(''), 5000);
     });
 
     // Legacy profile generation events (keep for backwards compatibility)
     channel.bind('profile-start', (data: any) => {
       console.log('Profile generation started:', data);
-      onStatusUpdate(`Fetching ${data.total || 10} recent emails...`);
+      onStatusUpdate?.(`Fetching ${data.total || 10} recent emails...`);
     });
 
     channel.bind('profile-processing', (data: any) => {
       console.log('Processing email:', data);
-      onStatusUpdate(`Processing email ${data.current}/${data.total}: ${data.subject || 'No subject'}`);
+      onStatusUpdate?.(`Processing email ${data.current}/${data.total}: ${data.subject || 'No subject'}`);
     });
 
     channel.bind('profile-generating', (data: any) => {
       console.log('Generating profile:', data);
-      onStatusUpdate(`Generating profile with ${data.totalInsights} insights...`);
+      onStatusUpdate?.(`Generating profile with ${data.totalInsights} insights...`);
     });
 
     channel.bind('profile-complete', (data: any) => {
       console.log('Profile generation complete:', data);
-      onStatusUpdate('Profile generated successfully!');
+      onStatusUpdate?.('Profile generated successfully!');
       
       // Clear status after 3 seconds
       setTimeout(() => {
-        onStatusUpdate('');
+        onStatusUpdate?.('');
       }, 3000);
     });
 
     channel.bind('profile-error', (data: any) => {
       console.log('Profile generation error:', data);
-      onStatusUpdate('Error generating profile');
+      onStatusUpdate?.('Error generating profile');
       
       // Clear status after 5 seconds
       setTimeout(() => {
-        onStatusUpdate('');
+        onStatusUpdate?.('');
       }, 5000);
     });
 
@@ -136,7 +180,7 @@ export function PusherReceiver({ sessionId, onStatusUpdate }: PusherReceiverProp
       pusher.unsubscribe(`${sessionId}`);
       pusher.disconnect();
     };
-  }, [sessionId, onStatusUpdate]);
+  }, [sessionId, onStatusUpdate, onProgressUpdate, onMasterProgressUpdate]);
 
   return null; // This component doesn't render anything
 } 

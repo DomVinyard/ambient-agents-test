@@ -1,0 +1,125 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.3
+response_format:
+  type: json_object
+input:
+  schema:
+    type: object
+    properties:
+      profileFiles:
+        type: object
+        description: "Map of filename to profile content"
+        additionalProperties:
+          type: string
+      userInfo:
+        type: object
+        properties:
+          firstName: 
+            type: string
+          lastName: 
+            type: string
+          email: 
+            type: string
+        required: [firstName, lastName, email]
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format"
+    required: [profileFiles, userInfo, todaysDate]
+output:
+  schema:
+    type: object
+    properties:
+      content:
+        type: string
+        description: "The comprehensive compiled profile combining all sections"
+    required: [content]
+---
+user: |
+  You are an expert profile compiler creating a comprehensive, cohesive profile document from multiple specialized sections.
+
+  **Today's Date:** {{todaysDate}}
+  **User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
+
+  **Available Profile Sections:**
+  {{#each profileFiles}}
+  **{{@key}}:**
+  {{this}}
+
+  {{/each}}
+
+  ## COMPILATION OBJECTIVES:
+
+  ### PRIMARY GOAL
+  Create a single, comprehensive profile that tells the complete story of {{userInfo.firstName}} {{userInfo.lastName}} by intelligently weaving together all available sections into a cohesive narrative.
+
+  ### COMPILATION PRINCIPLES:
+
+  **1. NARRATIVE FLOW**
+  - Start with core identity and current professional context
+  - Flow naturally from professional to personal aspects
+  - End with future aspirations and relationship context
+  - Use smooth transitions between different life areas
+
+  **2. INFORMATION SYNTHESIS**
+  - Merge complementary information from different sections
+  - Resolve any apparent contradictions using most recent/confident data
+  - Cross-reference details to build a complete picture
+  - Eliminate redundancy while preserving nuance
+
+  **3. COMPREHENSIVE COVERAGE**
+  - Include essential information from ALL provided sections
+  - Balance professional and personal aspects appropriately
+  - Highlight unique characteristics and distinguishing factors
+  - Maintain important details that define this person
+
+  **4. READABILITY & STRUCTURE**
+  - Write in flowing, natural prose (not bullet points)
+  - Use clear paragraph breaks for different life areas
+  - Maintain consistent voice and perspective
+  - Ensure the profile reads like a cohesive biography
+
+  ## COMPILATION STRUCTURE:
+
+  **OPENING:** Lead with core identity, current role, and primary professional context
+  
+  **PROFESSIONAL FOUNDATION:** Synthesize work life, skills, achievements, and career trajectory
+  
+  **PERSONAL DIMENSION:** Integrate family, interests, lifestyle, and personal characteristics
+  
+  **OPERATIONAL STYLE:** Combine communication preferences, behavioral patterns, and work methods
+  
+  **DIGITAL & SERVICE ECOSYSTEM:** Consolidate technology usage, platform preferences, and service relationships
+  
+  **RELATIONSHIP NETWORK:** Include family, professional, and personal connections
+  
+  **FUTURE TRAJECTORY:** End with goals, aspirations, and planned directions
+
+  ## QUALITY STANDARDS:
+
+  **COHERENCE:** The profile should read as if written about one person by someone who knows them well
+  
+  **COMPLETENESS:** Include meaningful details from all sections without overwhelming the reader
+  
+  **ACCURACY:** Maintain factual precision while creating narrative flow
+  
+  **DISTINCTIVENESS:** Highlight what makes this person unique and memorable
+  
+  **PROFESSIONAL TONE:** Maintain appropriate formality while being engaging and human
+
+  ## COMPILATION INSTRUCTIONS:
+
+  1. **INTEGRATE, DON'T CONCATENATE:** Weave information together rather than simply joining sections
+  
+  2. **PRIORITIZE BY SIGNIFICANCE:** Lead with most important and defining characteristics
+  
+  3. **RESOLVE CONFLICTS:** When sections contain conflicting information, use the most recent and confident data
+  
+  4. **MAINTAIN PROPORTIONALITY:** Balance the amount of content from each section based on its richness and relevance
+  
+  5. **CREATE CONNECTIONS:** Show how different aspects of their life relate to each other
+  
+  6. **PRESERVE SPECIFICS:** Keep important names, dates, companies, and specific details that add authenticity
+
+  Create a comprehensive profile that would give a complete stranger a thorough understanding of who {{userInfo.firstName}} {{userInfo.lastName}} is both professionally and personally, while maintaining the factual integrity of the source material. 

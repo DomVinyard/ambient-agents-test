@@ -1,0 +1,167 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.4
+response_format:
+  type: json_object
+input:
+  schema:
+    type: object
+    properties:
+      profileFiles:
+        type: object
+        description: "Map of filename to profile content"
+        additionalProperties:
+          type: string
+      userInfo:
+        type: object
+        properties:
+          firstName: 
+            type: string
+          lastName: 
+            type: string
+          email: 
+            type: string
+        required: [firstName, lastName, email]
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format"
+    required: [profileFiles, userInfo, todaysDate]
+output:
+  schema:
+    type: object
+    properties:
+      content:
+        type: string
+        description: "Automation opportunities analysis with specific background agent suggestions"
+    required: [content]
+---
+user: |
+  You are an expert automation consultant analyzing {{userInfo.firstName}} {{userInfo.lastName}}'s profile to identify specific areas where background agents could significantly improve their life through intelligent automation.
+
+  **Today's Date:** {{todaysDate}}
+  **User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
+
+  **Available Profile Data:**
+  {{#each profileFiles}}
+  **{{@key}}:**
+  {{this}}
+
+  {{/each}}
+
+  ## ANALYSIS FRAMEWORK:
+
+  ### BACKGROUND AGENT DEFINITION
+  Background agents are intelligent, autonomous systems that:
+  - **Monitor triggers** (time, events, data changes, emails, calendar updates)
+  - **Make decisions** using reasoning and context
+  - **Execute actions** through API calls and tool integrations
+  - **Learn patterns** from user behavior and preferences
+  - **Operate continuously** without user intervention
+
+  ### AUTOMATION OPPORTUNITY CATEGORIES
+
+  **1. COMMUNICATION & RELATIONSHIP MANAGEMENT**
+  - Email triage and response automation
+  - Calendar scheduling and meeting coordination
+  - Follow-up reminders for important relationships
+  - Social media engagement automation
+  - Newsletter and update management
+
+  **2. FINANCIAL & SUBSCRIPTION OPTIMIZATION**
+  - Subscription usage monitoring and cancellation alerts
+  - Bill payment automation and optimization
+  - Investment rebalancing based on goals
+  - Expense categorization and budget alerts
+  - Price monitoring for recurring purchases
+
+  **3. PROFESSIONAL PRODUCTIVITY**
+  - Project deadline tracking and milestone alerts
+  - Meeting preparation and agenda automation
+  - Document organization and filing
+  - Task prioritization based on deadlines and importance
+  - Performance metrics tracking and reporting
+
+  **4. PERSONAL LIFE OPTIMIZATION**
+  - Travel planning and booking automation
+  - Health appointment scheduling and reminders
+  - Fitness goal tracking and motivation
+  - Learning progress tracking and content curation
+  - Home maintenance scheduling and reminders
+
+  **5. INFORMATION & CONTENT MANAGEMENT**
+  - News and article curation based on interests
+  - Research automation for ongoing projects
+  - Content backup and organization
+  - Knowledge base updates and maintenance
+  - Personal data aggregation and insights
+
+  ## ANALYSIS METHODOLOGY:
+
+  ### STEP 1: PATTERN IDENTIFICATION
+  Analyze the profile data to identify:
+  - **Repetitive tasks** mentioned or implied
+  - **Pain points** in current workflows
+  - **Time-consuming activities** that could be automated
+  - **Missed opportunities** due to manual processes
+  - **Inconsistent behaviors** that could benefit from systematic automation
+
+  ### STEP 2: CONTEXT SYNTHESIS
+  Consider the user's:
+  - **Professional role** and responsibilities
+  - **Personal priorities** and life stage
+  - **Technology comfort level** and existing tools
+  - **Communication patterns** and preferences
+  - **Time constraints** and scheduling challenges
+
+  ### STEP 3: AUTOMATION PRIORITIZATION
+  Rank opportunities by:
+  - **Time savings potential** (high-frequency, time-consuming tasks)
+  - **Stress reduction impact** (error-prone or forgotten tasks)
+  - **Goal advancement** (activities that support stated objectives)
+  - **Implementation feasibility** (available APIs and tools)
+  - **ROI potential** (cost savings vs. time investment)
+
+  ## OUTPUT REQUIREMENTS:
+
+  ### AUTOMATION OPPORTUNITIES REPORT
+
+  Create a comprehensive analysis formatted as follows:
+
+  **EXECUTIVE SUMMARY**
+  - Brief overview of {{userInfo.firstName}}'s automation potential
+  - Top 3 highest-impact automation opportunities
+  - Estimated time savings and life improvement potential
+
+  **HIGH-PRIORITY AUTOMATIONS**
+  For each automation opportunity, provide:
+  - **Automation Name:** Clear, descriptive title
+  - **Trigger Conditions:** What events/data changes would activate this agent
+  - **Decision Logic:** How the agent would determine appropriate actions
+  - **Automated Actions:** Specific tasks the agent would perform
+  - **Tools/APIs Required:** Technical requirements for implementation
+  - **Expected Impact:** Time saved, stress reduced, goals advanced
+  - **Implementation Complexity:** Simple/Medium/Complex
+
+  **MEDIUM-PRIORITY AUTOMATIONS**
+  Additional opportunities with moderate impact but good ROI
+
+  **FUTURE CONSIDERATIONS**
+  Automation ideas that could become valuable as the user's life evolves
+
+  **INTEGRATION RECOMMENDATIONS**
+  How these automations could work together as a cohesive system
+
+  ## QUALITY STANDARDS:
+
+  **SPECIFICITY:** Base all suggestions on actual profile data, not generic recommendations
+  
+  **PRACTICALITY:** Focus on automations that are technically feasible with current tools and APIs
+  
+  **PERSONALIZATION:** Tailor each automation to {{userInfo.firstName}}'s specific context, preferences, and constraints
+  
+  **ACTIONABILITY:** Provide enough detail that a developer could begin implementing these automations
+  
+  **VALUE-FOCUSED:** Prioritize automations that would have meaningful impact on quality of life or productivity
+
+  Analyze {{userInfo.firstName}}'s profile comprehensively and create a detailed automation opportunities report that would genuinely improve their daily life through intelligent background agents. 
