@@ -79,7 +79,6 @@ export class AIService {
       let emailContent: string;
       if (emailObj.fullBody && emailObj.fullBody.trim().length > 0) {
         emailContent = emailObj.fullBody;
-        console.log('✅ Using fullBody from frontend');
       } else {
         emailContent = extractEmailContent(emailObj);
         console.log('⚠️ Extracting content from email object (fullBody not available)');

@@ -44,7 +44,6 @@ function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('ambient-agents-auth');
-    localStorage.removeItem('ambient-agents-files'); // Also clear files
   };
 
   if (isAuthenticated) {
@@ -60,6 +59,7 @@ function App() {
       alignItems="center"
       justifyContent="center"
       p={4}
+      position="relative"
     >
       <VStack spacing={8} maxW="md" w="full">
         <Heading size="xl" textAlign="center" color="gray.900">
@@ -80,6 +80,20 @@ function App() {
           </Button>
         </VStack>
       </VStack>
+      
+      {/* Admin Mode text at bottom */}
+      <Text
+        position="absolute"
+        bottom={4}
+        fontSize="sm"
+        color="gray.400"
+        cursor="pointer"
+        onClick={handleGoogleLogin}
+        _hover={{ color: "gray.600", textDecoration: "underline" }}
+        userSelect="none"
+      >
+        Admin Mode
+      </Text>
     </Box>
   );
 }
