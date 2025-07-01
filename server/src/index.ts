@@ -107,7 +107,13 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
 
     const { email, firstName, lastName, emails } = await gmailService.syncEmails(tokens, {
       sentCount,
-      receivedCount
+      receivedCount,
+      progressCallback: async (fetched: number, total: number) => {
+        await pusherService.trigger(`${sessionId}`, 'fetch-progress', {
+          fetched,
+          total
+        });
+      }
     });
     
     // Gmail service already limits the emails based on EMAIL_FETCH_LIMIT

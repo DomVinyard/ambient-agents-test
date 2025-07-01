@@ -60,6 +60,11 @@ export function PusherReceiver({ sessionId, onStatusUpdate }: PusherReceiverProp
       onStatusUpdate('Fetching emails...');
     });
 
+    channel.bind('fetch-progress', (data: any) => {
+      console.log('Email fetch progress:', data);
+      onStatusUpdate(`Fetching emails... ${data.fetched}/${data.total}`);
+    });
+
     channel.bind('fetch-complete', (data: any) => {
       console.log('Email fetch complete:', data);
       onStatusUpdate(`✓ Fetched ${data.totalEmails} emails (${data.inboxCount || 0} inbox, ${data.sentCount || 0} sent)`);

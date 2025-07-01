@@ -12,8 +12,27 @@ interface FileListProps {
 }
 
 export default function FileList({ files, selectedFile, onFileSelect, onDeleteFile, onDeleteAll }: FileListProps) {
-  const fileEntries = Object.entries(files);
   const [contextMenuFile, setContextMenuFile] = useState<string | null>(null);
+  
+  // Fixed order for profile categories with basic first
+  const categoryOrder = [
+    'basic',
+    'personal',
+    'professional',
+    'goals',
+    'behavioral',
+    'relationships',
+    'communication',
+    'accounts',
+    'style'
+  ];
+  
+  // Group files by category (extracted from filename)
+  const getCategory = (fileName: string) => {
+    const baseName = fileName.replace('.md', '');
+    // Map bio files to general category for emoji display, but keep original for sorting
+    return baseName;
+  };
   
   // Emoji map for profile categories
   const categoryEmojis: Record<string, string> = {
@@ -26,18 +45,30 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
     style: '✨',
     communication: '💬',
     general: '📄',
-    bio: '📄'
+    bio: '📄',
+    basic: '📄'
   };
   
-  // Group files by category (extracted from filename)
-  const getCategory = (fileName: string) => {
-    const baseName = fileName.replace('.md', '');
-    return baseName === 'bio' ? 'general' : baseName;
-  };
+  // Sort files according to the fixed category order
+  const fileEntries = Object.entries(files).sort(([fileNameA], [fileNameB]) => {
+    const categoryA = getCategory(fileNameA);
+    const categoryB = getCategory(fileNameB);
+    
+    const indexA = categoryOrder.indexOf(categoryA);
+    const indexB = categoryOrder.indexOf(categoryB);
+    
+    // If category not found in order, put it at the end
+    const orderA = indexA === -1 ? categoryOrder.length : indexA;
+    const orderB = indexB === -1 ? categoryOrder.length : indexB;
+    
+    return orderA - orderB;
+  });
 
   const getCategoryWithEmoji = (category: string) => {
-    const emoji = categoryEmojis[category] || '📄';
-    return `${emoji} ${category}`;
+    // Map bio to general for display purposes
+    const displayCategory = category === 'bio' ? 'general' : category;
+    const emoji = categoryEmojis[displayCategory] || '📄';
+    return `${emoji} ${displayCategory}`;
   };
 
   const handleRightClick = (e: React.MouseEvent, fileName: string) => {

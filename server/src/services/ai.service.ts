@@ -85,9 +85,6 @@ export class AIService {
         console.log('⚠️ Extracting content from email object (fullBody not available)');
       }
       
-      // DEBUG: Check for Schooner Bay
-      console.log('Contains "Schooner Bay":', emailContent.includes('Schooner Bay'));
-      console.log('Content length:', emailContent.length);
       
       // Extract email date from the email object
       let emailDate: string;

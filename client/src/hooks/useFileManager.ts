@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@chakra-ui/react';
 import { FileItem } from '../types';
+import { storageService } from '../services/storage.service';
 
 const STORAGE_KEY = 'ambient-agents-files';
 
@@ -10,33 +11,32 @@ export function useFileManager() {
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
   const toast = useToast();
 
-  // Load files from localStorage on mount
+  // Load files from storage on mount
   useEffect(() => {
-    const savedFiles = localStorage.getItem(STORAGE_KEY);
-    console.log('Loading files from localStorage:', savedFiles ? 'Found data' : 'No data');
+    const savedFiles = storageService.getItem(STORAGE_KEY);
+    console.log('Loading files from storage:', savedFiles ? 'Found data' : 'No data');
     
     if (savedFiles) {
       try {
-        const parsedFiles = JSON.parse(savedFiles);
-        console.log('Parsed files:', Object.keys(parsedFiles));
-        setFiles(parsedFiles);
+        console.log('Parsed files:', Object.keys(savedFiles));
+        setFiles(savedFiles);
         // Auto-select the first file if any exist
-        const fileNames = Object.keys(parsedFiles);
+        const fileNames = Object.keys(savedFiles);
         if (fileNames.length > 0) {
           setSelectedFile(fileNames[0]);
         }
       } catch (error) {
-        console.error('Error loading files from localStorage:', error);
+        console.error('Error loading files from storage:', error);
       }
     }
     setHasLoadedFromStorage(true);
   }, []);
 
-  // Save files to localStorage whenever files change (but not on initial load)
+  // Save files to storage whenever files change (but not on initial load)
   useEffect(() => {
     if (hasLoadedFromStorage) {
-      console.log('Saving files to localStorage:', Object.keys(files));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(files));
+      console.log('Saving files to storage:', Object.keys(files));
+      storageService.setItem(STORAGE_KEY, files);
     }
   }, [files, hasLoadedFromStorage]);
 

@@ -50,15 +50,6 @@ export default function EmailList({
             </Alert>
           )}
 
-          {isLoading && (
-            <Box p={4} textAlign="center">
-              <Spinner size="md" color="blue.500" />
-              <Text mt={2} fontSize="sm" color="gray.600">
-                Fetching emails...
-              </Text>
-            </Box>
-          )}
-
           {!isLoading && emails.length === 0 && !error && (
             <Box p={6} textAlign="center">
               <Flex justify="center" mb={3}>
@@ -91,10 +82,10 @@ export default function EmailList({
                   >
                     <Flex justify="space-between" align="center">
                       <Flex align="center" gap={2} flex="1">
-                        {hasInsights && (
+                        {(email.id in insightsByEmail) && (
                           <Box
-                            bg="red.500"
-                            color="white"
+                            bg={hasInsights ? "red.500" : "gray.300"}
+                            color={hasInsights ? "white" : "gray.600"}
                             borderRadius="full"
                             minW="18px"
                             h="18px"

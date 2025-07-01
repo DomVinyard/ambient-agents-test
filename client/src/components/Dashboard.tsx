@@ -4,6 +4,7 @@ import {
   useToast
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
+import pLimit from 'p-limit';
 import Toolbar from './Toolbar';
 import EmailList from './EmailList';
 import EmailViewer from './EmailViewer';
@@ -14,6 +15,7 @@ import { PusherReceiver } from './PusherReceiver';
 import FetchEmailsModal from './FetchEmailsModal';
 import { useFileManager } from '../hooks/useFileManager';
 import { Email, Insight } from '../types';
+import { storageService } from '../services/storage.service';
 import axios from 'axios';
 
 interface DashboardProps {
@@ -28,12 +30,21 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [insightsByEmail, setInsightsByEmail] = useState<Record<string, Insight[]>>({});
   const [userInfo, setUserInfo] = useState<{ email: string; firstName: string; lastName: string } | null>(null);
   
+  // Rate limiter for AI requests - limit to 10 concurrent AI calls
+  const aiLimit = pLimit(10);
+  
   // Loading states
   const [fetchingEmails, setFetchingEmails] = useState(false);
   const [extractingInsights, setExtractingInsights] = useState(false);
   const [applyingToBio, setApplyingToBio] = useState(false);
   const [buildingProfile, setBuildingProfile] = useState(false);
   const [processingEmailIds, setProcessingEmailIds] = useState<Set<string>>(new Set());
+  const [profileProgress, setProfileProgress] = useState<{
+    currentStep: string;
+    processed: number;
+    total: number;
+    errors: number;
+  } | null>(null);
   
   // Modal states
   const [fetchModalOpen, setFetchModalOpen] = useState(false);
@@ -45,34 +56,43 @@ export default function Dashboard({ onLogout }: DashboardProps) {
 
   const toast = useToast();
   
-  // Load emails and insights from localStorage on mount
+  // Load emails and insights from storage on mount
   useEffect(() => {
-    try {
-      const storedEmails = localStorage.getItem('ambient-agents-emails');
-      const storedUserInfo = localStorage.getItem('ambient-agents-userinfo');
-      const storedInsights = localStorage.getItem('ambient-agents-insights');
-      
-      if (storedEmails) {
-        const emails = JSON.parse(storedEmails);
-        setEmails(emails);
+    const loadStoredData = async () => {
+      try {
+        console.log('Loading stored data...');
+        const [storedEmails, storedUserInfo, storedInsights] = await Promise.all([
+          storageService.getEmails(),
+          storageService.getUserInfo(),
+          storageService.getInsights()
+        ]);
+        
+        if (storedEmails.length > 0) {
+          console.log(`Loaded ${storedEmails.length} emails from storage`);
+          setEmails(storedEmails);
+        }
+        
+        if (storedUserInfo) {
+          console.log('Loaded user info from storage');
+          setUserInfo(storedUserInfo);
+        }
+        
+        if (Object.keys(storedInsights).length > 0) {
+          console.log(`Loaded insights for ${Object.keys(storedInsights).length} emails from storage`);
+          setInsightsByEmail(storedInsights);
+        }
+      } catch (error) {
+        console.error('Error loading data from storage:', error);
+        // Clear corrupted data
+        try {
+          await storageService.clearAll();
+        } catch (clearError) {
+          console.error('Error clearing corrupted storage:', clearError);
+        }
       }
-      
-      if (storedUserInfo) {
-        const userInfo = JSON.parse(storedUserInfo);
-        setUserInfo(userInfo);
-      }
-      
-      if (storedInsights) {
-        const insights = JSON.parse(storedInsights);
-        setInsightsByEmail(insights);
-      }
-    } catch (error) {
-      console.error('Error loading data from localStorage:', error);
-      // Clear corrupted data
-      localStorage.removeItem('ambient-agents-emails');
-      localStorage.removeItem('ambient-agents-userinfo');
-      localStorage.removeItem('ambient-agents-insights');
-    }
+    };
+    
+    loadStoredData();
   }, []);
 
   // Update current insights when selectedEmailId changes
@@ -152,9 +172,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setEmails(newEmails);
       setUserInfo(response.data.userInfo);
       
-      // Store emails in localStorage
-      localStorage.setItem('ambient-agents-emails', JSON.stringify(newEmails));
-      localStorage.setItem('ambient-agents-userinfo', JSON.stringify(response.data.userInfo));
+      // Store emails in IndexedDB
+      console.log(`Storing ${newEmails.length} emails in IndexedDB...`);
+      await Promise.all([
+        storageService.setEmails(newEmails),
+        storageService.setUserInfo(response.data.userInfo)
+      ]);
       
       toast({
         title: 'Emails Fetched',
@@ -219,8 +242,8 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setInsightsByEmail(updatedInsightsByEmail);
       setInsights(newInsights);
       
-      // Store insights in localStorage
-      localStorage.setItem('ambient-agents-insights', JSON.stringify(updatedInsightsByEmail));
+      // Store insights in IndexedDB
+      await storageService.setInsights(updatedInsightsByEmail);
       
       toast({
         title: 'Insights Extracted',
@@ -251,21 +274,35 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setBuildingProfile(true);
     setBioError(null);
     setProcessingEmailIds(new Set());
+    setProfileProgress({
+      currentStep: 'Extracting insights from emails',
+      processed: 0,
+      total: emails.length,
+      errors: 0
+    });
     
     try {
       const tokens = getAuthTokens();
       
-      // Step 1: Extract insights from all emails in parallel
-      const extractPromises = emails.map(async (email) => {
-        setProcessingEmailIds(prev => new Set([...prev, email.id]));
-        
-        try {
-          const response = await axios.post('http://localhost:3001/api/gmail/extract-insights', {
-            tokens,
-            emailId: email.id,
-            emailData: email,
-            sessionId: 'default'
-          });
+      // Step 1: Extract insights from all emails with rate limiting
+      console.log(`Starting to process ${emails.length} emails with AI rate limiting (max 10 concurrent)`);
+      
+      let processedCount = 0;
+      let currentErrorCount = 0;
+      
+      const extractPromises = emails.map((email, index) => 
+        aiLimit(async () => {
+          setProcessingEmailIds(prev => new Set([...prev, email.id]));
+          
+          try {
+            console.log(`Processing email ${index + 1}/${emails.length}: ${email.subject.substring(0, 50)}...`);
+            
+            const response = await axios.post('http://localhost:3001/api/gmail/extract-insights', {
+              tokens,
+              emailId: email.id,
+              emailData: email,
+              sessionId: 'default'
+            });
           
           const insights = response.data.insights || [];
           
@@ -275,7 +312,10 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               ...prev,
               [email.id]: insights
             };
-            localStorage.setItem('ambient-agents-insights', JSON.stringify(updated));
+            // Store in IndexedDB asynchronously (don't block)
+            storageService.setInsights(updated).catch(error => 
+              console.error('Failed to store insights:', error)
+            );
             return updated;
           });
           
@@ -283,8 +323,23 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             emailId: email.id,
             insights
           };
-        } catch (error) {
-          console.error(`Error extracting insights from email ${email.id}:`, error);
+        } catch (error: any) {
+          const errorMsg = error?.response?.data?.error || error?.message || 'Unknown error';
+          console.error(`❌ Failed to extract insights from email "${email.subject}":`, errorMsg);
+          
+          // Show a toast for debugging if many errors
+          if (index < 5) { // Only show first 5 errors to avoid spam
+            toast({
+              title: `Failed to process: ${email.subject.substring(0, 30)}...`,
+              description: errorMsg,
+              status: 'warning',
+              duration: 2000,
+              isClosable: true,
+            });
+          }
+          
+          currentErrorCount++;
+          
           return {
             emailId: email.id,
             insights: []
@@ -295,10 +350,29 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             newSet.delete(email.id);
             return newSet;
           });
+          
+          // Update progress in real-time
+          processedCount++;
+          setProfileProgress(prev => prev ? {
+            ...prev,
+            processed: processedCount,
+            errors: currentErrorCount
+          } : null);
         }
-      });
+      })
+    );
       
       const extractResults = await Promise.all(extractPromises);
+      
+      // Count successes (errors already tracked in real-time)
+      const successfulEmails = extractResults.filter(r => r.insights.length > 0).length;
+      
+      setProfileProgress({
+        currentStep: 'Aggregating insights by category',
+        processed: emails.length,
+        total: emails.length,
+        errors: currentErrorCount
+      });
       
       // Step 2: Aggregate all insights and group by category
       const allInsights: any[] = [];
@@ -320,6 +394,14 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
       
       // Step 3: Apply insights to profile files in parallel
+      const categoryCount = Object.keys(insightsByCategory).length;
+      setProfileProgress({
+        currentStep: 'Generating profile files',
+        processed: 0,
+        total: categoryCount,
+        errors: currentErrorCount
+      });
+      
       const applyPromises = Object.entries(insightsByCategory).map(async ([category, categoryInsights]: [string, any[]]) => {
         const fileName = `${category}.md`;
         const existingFile = files[fileName];
@@ -348,10 +430,13 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       const successfulCategories = applyResults.filter(r => r.success).length;
       const totalCategories = applyResults.length;
       
+      const resultStatus = currentErrorCount > 0 ? 'warning' : 'success';
+      const resultTitle = currentErrorCount > 0 ? 'Profile Built with Some Errors' : 'Profile Built Successfully';
+      
       toast({
-        title: 'Profile Built Successfully',
-        description: `Processed ${allInsights.length} insights from ${emails.length} emails and updated ${successfulCategories}/${totalCategories} profile categories.`,
-        status: 'success',
+        title: resultTitle,
+        description: `Processed ${allInsights.length} insights from ${successfulEmails}/${emails.length} emails${currentErrorCount > 0 ? ` (${currentErrorCount} failed)` : ''} and updated ${successfulCategories}/${totalCategories} profile categories.`,
+        status: resultStatus,
         duration: 5000,
         isClosable: true,
       });
@@ -369,6 +454,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     } finally {
       setBuildingProfile(false);
       setProcessingEmailIds(new Set());
+      setProfileProgress(null);
     }
   };
 
@@ -456,34 +542,45 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
-  const handleDeleteAllData = () => {
+  const handleDeleteAllData = async () => {
     if (window.confirm('Are you sure you want to delete all bio and email data? This action cannot be undone.')) {
-      // Clear localStorage
-      localStorage.removeItem('ambient-agents-emails');
-      localStorage.removeItem('ambient-agents-userinfo');
-      localStorage.removeItem('ambient-agents-files');
-      localStorage.removeItem('ambient-agents-insights');
-      
-      // Reset all state
-      setEmails([]);
-      setSelectedEmailId(null);
-      setInsights([]);
-      setInsightsByEmail({});
-      setUserInfo(null);
-      setEmailError(null);
-      setInsightError(null);
-      setBioError(null);
-      
-      // Clear all profile files
-      clearAllFiles();
-      
-      toast({
-        title: 'Data Deleted',
-        description: 'All bio, email data, and profile files have been cleared.',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+      try {
+        // Clear IndexedDB
+        await storageService.clearAll();
+        
+        // Clear localStorage (for files)
+        storageService.removeItem('ambient-agents-files');
+        
+        // Reset all state
+        setEmails([]);
+        setSelectedEmailId(null);
+        setInsights([]);
+        setInsightsByEmail({});
+        setUserInfo(null);
+        setEmailError(null);
+        setInsightError(null);
+        setBioError(null);
+        
+        // Clear all profile files
+        clearAllFiles();
+        
+        toast({
+          title: 'All Data Deleted',
+          description: 'All emails, insights, and profile files have been deleted.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        console.error('Error clearing data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to clear all data. Please try again.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     }
   };
 
@@ -500,6 +597,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         onLogout={onLogout}
         onDeleteAllData={handleDeleteAllData}
         status={status}
+        profileProgress={profileProgress}
       />
 
       <FetchEmailsModal

@@ -11,11 +11,10 @@ import {
   HStack,
   Checkbox,
   Text,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  SliderThumb,
   FormControl,
   FormLabel,
   Divider,
@@ -48,9 +47,12 @@ export default function FetchEmailsModal({
   hasExistingProfileFiles
 }: FetchEmailsModalProps) {
   const [buildProfile, setBuildProfile] = useState(true);
-  const [sentCount, setSentCount] = useState(10);
-  const [receivedCount, setReceivedCount] = useState(10);
+  const [totalEmails, setTotalEmails] = useState(100);
   const [deleteProfileFiles, setDeleteProfileFiles] = useState(true);
+
+  // Split emails evenly between sent and received
+  const sentCount = Math.floor(totalEmails / 2);
+  const receivedCount = totalEmails - sentCount;
 
   const handleSubmit = () => {
     onFetchEmails({
@@ -86,46 +88,27 @@ export default function FetchEmailsModal({
             </Alert>
 
             <FormControl>
-              <FormLabel fontSize="sm" fontWeight="medium">Email Count Settings</FormLabel>
-              <VStack spacing={3} align="stretch">
-                <HStack justify="space-between">
-                  <Text fontSize="sm">Received emails (Inbox):</Text>
-                  <NumberInput
-                    value={receivedCount}
-                    onChange={(_, value) => setReceivedCount(value || 10)}
-                    min={1}
-                    max={50}
-                    size="sm"
-                    width="80px"
-                  >
-                    <NumberInputField />
-                    <NumberInputStepper>
-                      <NumberIncrementStepper />
-                      <NumberDecrementStepper />
-                    </NumberInputStepper>
-                  </NumberInput>
-                </HStack>
-
-                <HStack justify="space-between">
-                  <Text fontSize="sm">Sent emails:</Text>
-                  <NumberInput
-                    value={sentCount}
-                    onChange={(_, value) => setSentCount(value || 10)}
-                    min={1}
-                    max={50}
-                    size="sm"
-                    width="80px"
-                  >
-                    <NumberInputField />
-                    <NumberInputStepper>
-                      <NumberIncrementStepper />
-                      <NumberDecrementStepper />
-                    </NumberInputStepper>
-                  </NumberInput>
-                </HStack>
-              </VStack>
+              <FormLabel fontSize="sm" fontWeight="medium">
+                Total Emails: {totalEmails} ({receivedCount} received, {sentCount} sent)
+              </FormLabel>
+                             <Slider
+                 value={totalEmails}
+                 onChange={setTotalEmails}
+                 min={10}
+                 max={1000}
+                 step={10}
+                 colorScheme="blue"
+               >
+                 <SliderTrack>
+                   <SliderFilledTrack />
+                 </SliderTrack>
+                 <SliderThumb />
+               </Slider>
+               <HStack justify="space-between" mt={1}>
+                 <Text fontSize="xs" color="gray.500">10</Text>
+                 <Text fontSize="xs" color="gray.500">1000</Text>
+               </HStack>
             </FormControl>
-
             <Divider />
 
             <FormControl>

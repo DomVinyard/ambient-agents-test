@@ -52,9 +52,14 @@ export function cleanHtmlContent(htmlContent: string): string {
         { selector: 'link', format: 'skip' },
         // Format links nicely
         { selector: 'a', options: { ignoreHref: true } },
-        // Keep important structure
-        { selector: 'h1,h2,h3,h4,h5,h6', options: { uppercase: false } },
-        { selector: 'p', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
+        // Keep important structure - separate entries for each heading level
+        { selector: 'h1', format: 'block', options: { uppercase: false } },
+        { selector: 'h2', format: 'block', options: { uppercase: false } },
+        { selector: 'h3', format: 'block', options: { uppercase: false } },
+        { selector: 'h4', format: 'block', options: { uppercase: false } },
+        { selector: 'h5', format: 'block', options: { uppercase: false } },
+        { selector: 'h6', format: 'block', options: { uppercase: false } },
+        { selector: 'p', format: 'block', options: { leadingLineBreaks: 1, trailingLineBreaks: 1 } },
         { selector: 'br', format: 'lineBreak' }
       ]
     });
