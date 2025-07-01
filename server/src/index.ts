@@ -93,9 +93,9 @@ app.post('/api/pusher/auth', (req, res) => {
 
 // Fetch emails endpoint (step 1)
 app.post('/api/gmail/fetch-emails', async (req, res) => {
-  const { tokens } = req.body;
+  const { tokens, sentCount, receivedCount } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Fetching emails for session: ${sessionId}`);
+  console.log(`Fetching emails for session: ${sessionId}, sent: ${sentCount || 'default'}, received: ${receivedCount || 'default'}`);
 
   if (!tokens) {
     console.error('No tokens provided for email fetch');
@@ -105,7 +105,10 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
   try {
     await pusherService.trigger(`${sessionId}`, 'fetch-start', {});
 
-    const { email, firstName, lastName, emails } = await gmailService.syncEmails(tokens);
+    const { email, firstName, lastName, emails } = await gmailService.syncEmails(tokens, {
+      sentCount,
+      receivedCount
+    });
     
     // Gmail service already limits the emails based on EMAIL_FETCH_LIMIT
     const recentEmails = emails;
@@ -118,6 +121,8 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
          id: emailObj.id,
          subject: headers.find((h: any) => h.name === 'Subject')?.value || 'No subject',
          from: headers.find((h: any) => h.name === 'From')?.value || '',
+         to: headers.find((h: any) => h.name === 'To')?.value || '',
+         cc: headers.find((h: any) => h.name === 'Cc')?.value || '',
          date: new Date(internalDate).toISOString(),
          internalDate: internalDate,
          snippet: emailObj.snippet || '',
@@ -144,12 +149,12 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
      });
 
          const inboxCount = deduplicatedEmails.filter(e => e.emailType === 'inbox').length;
-     const sentCount = deduplicatedEmails.filter(e => e.emailType === 'sent').length;
+     const sentEmailCount = deduplicatedEmails.filter(e => e.emailType === 'sent').length;
      
      await pusherService.trigger(`${sessionId}`, 'fetch-complete', {
        totalEmails: deduplicatedEmails.length,
        inboxCount,
-       sentCount
+       sentCount: sentEmailCount
      });
      
      res.json({ 
@@ -187,11 +192,13 @@ app.post('/api/gmail/extract-insights', async (req, res) => {
       internalDate: new Date(emailData.date).getTime().toString(),
       labelIds: emailData.labelIds || [],
       emailType: emailData.emailType || 'unknown', // Ensure emailType is passed through
+      threadId: emailData.threadId,
       payload: {
         headers: [
           { name: 'Subject', value: emailData.subject },
           { name: 'From', value: emailData.from },
-          { name: 'To', value: '' }, // Not available in frontend format
+          { name: 'To', value: emailData.to || '' },
+          { name: 'Cc', value: emailData.cc || '' },
           { name: 'Date', value: emailData.date }
         ]
       }

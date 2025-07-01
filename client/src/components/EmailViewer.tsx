@@ -87,6 +87,22 @@ export default function EmailViewer({
                     </Text>
                   </Box>
                   
+                  {email.to && (
+                    <Box>
+                      <Text fontSize="sm" color="gray.600" wordBreak="break-word">
+                        <Text as="span" fontWeight="medium">To:</Text> {email.to}
+                      </Text>
+                    </Box>
+                  )}
+                  
+                  {email.cc && (
+                    <Box>
+                      <Text fontSize="sm" color="gray.600" wordBreak="break-word">
+                        <Text as="span" fontWeight="medium">CC:</Text> {email.cc}
+                      </Text>
+                    </Box>
+                  )}
+                  
                   <Box>
                     <Text fontSize="sm" color="gray.600">
                       <Text as="span" fontWeight="medium">Date:</Text> {new Date(email.date).toLocaleString()}

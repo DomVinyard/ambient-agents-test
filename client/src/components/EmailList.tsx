@@ -6,18 +6,22 @@ interface EmailListProps {
   emails: Email[];
   selectedEmailId: string | null;
   onEmailSelect: (emailId: string) => void;
-  onFetchEmails: () => void;
+  onOpenFetchModal: () => void;
   isLoading: boolean;
+  processingEmailIds: Set<string>;
   error: string | null;
+  insightsByEmail: Record<string, any[]>;
 }
 
 export default function EmailList({ 
   emails, 
   selectedEmailId, 
   onEmailSelect, 
-  onFetchEmails, 
-  isLoading, 
-  error 
+  onOpenFetchModal,
+  isLoading,
+  processingEmailIds,
+  error,
+  insightsByEmail
 }: EmailListProps) {
   return (
     <Box flex="1" h="100%" bg="white" borderRight="1px solid" borderColor="gray.200">
@@ -28,9 +32,9 @@ export default function EmailList({
             leftIcon={<RefreshCw size={16} />}
             colorScheme="blue"
             size="sm"
-            onClick={onFetchEmails}
+            onClick={onOpenFetchModal}
             isLoading={isLoading}
-            loadingText={emails.length > 0 ? "Refetching..." : "Fetching..."}
+            loadingText={emails.length > 0 ? "Processing..." : "Fetching..."}
             w="100%"
           >
             {emails.length > 0 ? 'Refetch Emails' : 'Fetch Emails'}
@@ -68,39 +72,66 @@ export default function EmailList({
 
           {emails.length > 0 && (
             <List spacing={0}>
-              {emails.map((email) => (
-                <ListItem
-                  key={email.id}
-                  p={3}
-                  borderBottom="1px solid"
-                  borderColor="gray.100"
-                  cursor="pointer"
-                  bg={selectedEmailId === email.id ? 'blue.50' : 'white'}
-                  _hover={{ bg: selectedEmailId === email.id ? 'blue.50' : 'gray.50' }}
-                  onClick={() => onEmailSelect(email.id)}
-                >
-                  <Flex justify="space-between" align="center">
-                    <Text fontSize="sm" fontWeight="medium" color="gray.800" noOfLines={1} flex="1">
-                      {email.subject}
-                    </Text>
-                    <Badge 
-                      colorScheme={email.emailType === 'sent' ? 'green' : 'blue'} 
-                      size="sm"
-                      ml={2}
-                    >
-                      {email.emailType === 'sent' ? 'SENT' : 'INBOX'}
-                    </Badge>
-                  </Flex>
-                  <Flex justify="space-between" align="center">
-                    <Text fontSize="xs" color="gray.600" noOfLines={1} flex="1" mr={2}>
-                      {email.from}
-                    </Text>
-                    <Text fontSize="xs" color="gray.400">
-                      {new Date(email.date).toLocaleDateString()}
-                    </Text>
-                  </Flex>
-                </ListItem>
-              ))}
+              {emails.map((email) => {
+                const isProcessing = processingEmailIds.has(email.id);
+                const insightCount = insightsByEmail[email.id]?.length || 0;
+                const hasInsights = insightCount > 0;
+                
+                return (
+                  <ListItem
+                    key={email.id}
+                    p={3}
+                    borderBottom="1px solid"
+                    borderColor="gray.100"
+                    cursor="pointer"
+                    bg={selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : 'white')}
+                    _hover={{ bg: selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : 'gray.50') }}
+                    onClick={() => onEmailSelect(email.id)}
+                    opacity={isProcessing ? 0.8 : 1}
+                  >
+                    <Flex justify="space-between" align="center">
+                      <Flex align="center" gap={2} flex="1">
+                        {hasInsights && (
+                          <Box
+                            bg="red.500"
+                            color="white"
+                            borderRadius="full"
+                            minW="18px"
+                            h="18px"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                            fontSize="xs"
+                            fontWeight="bold"
+                          >
+                            {insightCount}
+                          </Box>
+                        )}
+                        <Text fontSize="sm" fontWeight="medium" color="gray.800" noOfLines={1} flex="1">
+                          {email.subject}
+                        </Text>
+                      </Flex>
+                      <Flex align="center" gap={2}>
+                        {isProcessing && <Spinner size="sm" color="purple.500" />}
+                        <Badge 
+                          colorScheme={email.emailType === 'sent' ? 'green' : 'blue'} 
+                          size="sm"
+                        >
+                          {email.emailType === 'sent' ? 'SENT' : 'INBOX'}
+                        </Badge>
+                      </Flex>
+                    </Flex>
+                    <Flex justify="space-between" align="center">
+                      <Text fontSize="xs" color="gray.600" noOfLines={1} flex="1" mr={2}>
+                        {email.from}
+                      </Text>
+                      <Text fontSize="xs" color="gray.400">
+                        {new Date(email.date).toLocaleDateString()}
+                      </Text>
+                    </Flex>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </Box>

@@ -57,7 +57,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals]
+                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals, style]
               description: "One or more relevant categories - insights can span multiple categories"
               maxItems: 3
               minItems: 1
@@ -200,6 +200,11 @@ user: |
   - "User does not need to take action" (temporary status, meaningless standalone)
   - "User's July charges have been posted" (temporary billing update)
   
+  **✅ IMPORTANT: DO EXTRACT explicitly mentioned life events:**
+  - Travel plans ("after we get back from England", "going to Paris")
+  - Life changes ("moving to", "starting new job", "getting married")
+  - Personal updates about user's circumstances and plans
+  
   **TEST:** Would this insight make sense in a profile without knowing the email context? If no, don't extract it.
 
   ### STEP 6: FINAL QUALITY FILTERS
@@ -215,6 +220,13 @@ user: |
   - Personal details shared by friends/family
   - Service relationships indicated by receiving legitimate communications
 
+  **TRAVEL & LIFE EVENTS EXTRACTION:**
+  - ✅ Email mentions user's upcoming travel plans → Extract destination and timing (**personal** + **goals**)
+  - ✅ "We'll be back to visit after summer travels" → User has travel plans (**personal** + **goals**)
+  - ✅ Service emails mentioning user's relocation → User is moving/has moved (**personal**)
+  - ❌ Flight confirmations with times/gates → Specific logistics, not profile-worthy
+  - ❌ Hotel booking confirmations → Transaction details, not profile-worthy
+
   **RELATIONSHIP EXTRACTION SPECIFICITY:**
   - ✅ "From: Sarah Chen <s.chen@acme.com>" + personal tone → User has personal relationship with Sarah Chen (s.chen@acme.com)
   - ❌ "Sarah" mentioned in email → Too general, unclear which Sarah
@@ -222,22 +234,52 @@ user: |
   - ✅ Email from family member with recognizable email pattern → Family relationship with specific contact info
   - ❌ Generic first names without context → Not useful for profile building
 
+  **CRITICAL: For relationships, ALWAYS include email addresses from headers:**
+  - Extract sender as "Name <email@domain.com>" not just "Name"
+  - If someone mentioned in content, include their full contact details when available
+  - NEVER extract just "Robert" - always "Robert <email@domain.com>" or "Robert (context)"
+  - Email addresses are essential for useful relationship tracking
+
+  **IDENTIFY INTRODUCTION PATTERNS & CONNECTORS:**
+  - Look for emails that are introductions: subject lines with "intro", "connecting", "meet"
+  - Emails that introduce user to others or others to user
+  - ✅ Email from Brianna introducing user to Robert → User has connection facilitated by Brianna
+  - ✅ "I'd like to introduce you to..." → Extract relationship with introducer
+  - Look for CC patterns in introduction emails to identify all participants
+
   ## CATEGORY DEFINITIONS:
   Use 1-3 categories per insight when the insight spans multiple areas:
   
   - **basic:** Name, age, contact information, personal identifiers
   - **professional:** Job, company, work projects, professional skills, work relationships
-  - **personal:** Family, interests, hobbies, life events, living location (exclude productivity tools and work apps)
+  - **personal:** Family, interests, hobbies, life events, travel plans, living location (exclude productivity tools and work apps)
   - **communication:** Contact preferences, communication style, availability patterns
   - **behavioral:** Habits, routines, work patterns, decision-making approaches, productivity tools usage, organization systems, payment patterns (what they spend money on)
   - **accounts:** Service accounts, platforms, subscriptions, financial services user has relationships with (include meaningful attributes like paid/free, premium/basic)
   - **relationships:** Named people with specific identifiers (name + email/contact info) and their relationship to the user
-  - **goals:** Stated objectives, plans, aspirations, deadlines
+  - **goals:** Stated objectives, plans, aspirations, upcoming travel, future events, deadlines
+  - **style:** Communication patterns, writing style, tone preferences, vernacular, language patterns user consistently exhibits
   
   **Examples of multi-category insights:**
   - Paid subscription → **accounts** + **behavioral** (service relationship + payment pattern)
   - Housing service relationship → **personal** + **accounts** (residence + service)
   - Work contact information → **professional** + **basic** (employment + identity)
+  - Email from Robert <robert@example.com> → **relationships** (specific contact with full identifier)
+  - Sender's communication style reveals patterns → **style** + **relationships** (how they communicate + who they are)
+
+  **RELATIONSHIP EXTRACTION EXAMPLES:**
+  - ✅ "User receives personal emails from Robert Johnson <robert.johnson@company.com>"
+  - ❌ "User receives personal emails from Robert"
+  - ✅ "User has business relationship with Sarah Chen <s.chen@acme.com>"
+  - ❌ "User has business relationship with Sarah"
+  - ✅ "User was connected to sender through introduction by Brianna Nelson <brianna@company.com>"
+  - ❌ "User knows multiple people"
+
+  **STYLE EXTRACTION EXAMPLES (from received emails):**
+  - ✅ "User's contacts use formal communication style when writing to user (evidenced by formal greetings and structure)"
+  - ✅ "User receives casual, friendly emails suggesting informal communication preferences"
+  - ✅ "User's professional contacts use direct, brief communication style when corresponding"
+  - ❌ "User prefers casual emails" (too inferential without direct evidence)
 
   ## OUTPUT REQUIREMENTS:
 

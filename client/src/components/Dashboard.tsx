@@ -11,6 +11,7 @@ import InsightsViewer from './InsightsViewer';
 import FileList from './FileList';
 import FileEditor from './FileEditor';
 import { PusherReceiver } from './PusherReceiver';
+import FetchEmailsModal from './FetchEmailsModal';
 import { useFileManager } from '../hooks/useFileManager';
 import { Email, Insight } from '../types';
 import axios from 'axios';
@@ -31,6 +32,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
   const [fetchingEmails, setFetchingEmails] = useState(false);
   const [extractingInsights, setExtractingInsights] = useState(false);
   const [applyingToBio, setApplyingToBio] = useState(false);
+  const [buildingProfile, setBuildingProfile] = useState(false);
+  const [processingEmailIds, setProcessingEmailIds] = useState<Set<string>>(new Set());
+  
+  // Modal states
+  const [fetchModalOpen, setFetchModalOpen] = useState(false);
   
   // Error states
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -107,9 +113,20 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     return typeof tokenString === 'string' ? JSON.parse(decodeURIComponent(tokenString)) : tokenString;
   };
 
-  const handleFetchEmails = async () => {
+  const handleFetchEmails = async (options: {
+    buildProfile: boolean;
+    sentCount: number;
+    receivedCount: number;
+    deleteProfileFiles: boolean;
+  }) => {
     setFetchingEmails(true);
     setEmailError(null);
+    setFetchModalOpen(false);
+    
+    // Delete profile files if requested
+    if (options.deleteProfileFiles) {
+      clearAllFiles();
+    }
     
     // Clear current emails and selected state when refetching
     setEmails([]);
@@ -126,7 +143,9 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       
       const response = await axios.post('http://localhost:3001/api/gmail/fetch-emails', {
         tokens,
-        sessionId: 'default'
+        sessionId: 'default',
+        sentCount: options.sentCount,
+        receivedCount: options.receivedCount
       });
 
       const newEmails = response.data.emails;
@@ -144,6 +163,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         duration: 3000,
         isClosable: true,
       });
+
+      // If buildProfile is enabled, automatically build profile after fetching
+      if (options.buildProfile && newEmails.length > 0) {
+        await handleBuildProfile();
+      }
       
     } catch (error) {
       console.error('Error fetching emails:', error);
@@ -218,6 +242,133 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       });
     } finally {
       setExtractingInsights(false);
+    }
+  };
+
+  const handleBuildProfile = async () => {
+    if (emails.length === 0 || !userInfo) return;
+    
+    setBuildingProfile(true);
+    setBioError(null);
+    setProcessingEmailIds(new Set());
+    
+    try {
+      const tokens = getAuthTokens();
+      
+      // Step 1: Extract insights from all emails in parallel
+      const extractPromises = emails.map(async (email) => {
+        setProcessingEmailIds(prev => new Set([...prev, email.id]));
+        
+        try {
+          const response = await axios.post('http://localhost:3001/api/gmail/extract-insights', {
+            tokens,
+            emailId: email.id,
+            emailData: email,
+            sessionId: 'default'
+          });
+          
+          const insights = response.data.insights || [];
+          
+          // Update insights immediately for this email
+          setInsightsByEmail(prev => {
+            const updated = {
+              ...prev,
+              [email.id]: insights
+            };
+            localStorage.setItem('ambient-agents-insights', JSON.stringify(updated));
+            return updated;
+          });
+          
+          return {
+            emailId: email.id,
+            insights
+          };
+        } catch (error) {
+          console.error(`Error extracting insights from email ${email.id}:`, error);
+          return {
+            emailId: email.id,
+            insights: []
+          };
+        } finally {
+          setProcessingEmailIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(email.id);
+            return newSet;
+          });
+        }
+      });
+      
+      const extractResults = await Promise.all(extractPromises);
+      
+      // Step 2: Aggregate all insights and group by category
+      const allInsights: any[] = [];
+      
+      extractResults.forEach(({ insights }) => {
+        allInsights.push(...insights);
+      });
+      
+      // Group insights by category (handling multiple categories per insight)
+      const insightsByCategory: Record<string, any[]> = {};
+      
+      allInsights.forEach(insight => {
+        insight.categories.forEach((category: string) => {
+          if (!insightsByCategory[category]) {
+            insightsByCategory[category] = [];
+          }
+          insightsByCategory[category].push(insight);
+        });
+      });
+      
+      // Step 3: Apply insights to profile files in parallel
+      const applyPromises = Object.entries(insightsByCategory).map(async ([category, categoryInsights]: [string, any[]]) => {
+        const fileName = `${category}.md`;
+        const existingFile = files[fileName];
+        
+        try {
+          const response = await axios.post('http://localhost:3001/api/ai/blend-profile', {
+            tokens,
+            category,
+            newInsights: categoryInsights,
+            existingContent: existingFile?.content || null,
+            userInfo,
+            sessionId: 'default'
+          });
+          
+          const blendedContent = response.data.content;
+          createOrUpdateFile(fileName, blendedContent);
+          
+          return { category, success: true };
+        } catch (error) {
+          console.error(`Error applying insights to ${category}:`, error);
+          return { category, success: false };
+        }
+      });
+      
+      const applyResults = await Promise.all(applyPromises);
+      const successfulCategories = applyResults.filter(r => r.success).length;
+      const totalCategories = applyResults.length;
+      
+      toast({
+        title: 'Profile Built Successfully',
+        description: `Processed ${allInsights.length} insights from ${emails.length} emails and updated ${successfulCategories}/${totalCategories} profile categories.`,
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      
+    } catch (error) {
+      console.error('Error building profile:', error);
+      setBioError('Failed to build profile. Please try again.');
+      toast({
+        title: 'Error',
+        description: 'Failed to build profile. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setBuildingProfile(false);
+      setProcessingEmailIds(new Set());
     }
   };
 
@@ -323,9 +474,12 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       setInsightError(null);
       setBioError(null);
       
+      // Clear all profile files
+      clearAllFiles();
+      
       toast({
         title: 'Data Deleted',
-        description: 'All bio and email data has been cleared.',
+        description: 'All bio, email data, and profile files have been cleared.',
         status: 'success',
         duration: 3000,
         isClosable: true,
@@ -347,6 +501,15 @@ export default function Dashboard({ onLogout }: DashboardProps) {
         onDeleteAllData={handleDeleteAllData}
         status={status}
       />
+
+      <FetchEmailsModal
+        isOpen={fetchModalOpen}
+        onClose={() => setFetchModalOpen(false)}
+        onFetchEmails={handleFetchEmails}
+        isLoading={fetchingEmails || buildingProfile}
+        hasExistingEmails={emails.length > 0}
+        hasExistingProfileFiles={Object.keys(files).length > 0}
+      />
       
       <Flex h="calc(100vh - 60px)" w="100%">
         <Box w="20%" h="100%">
@@ -354,9 +517,11 @@ export default function Dashboard({ onLogout }: DashboardProps) {
             emails={emails}
             selectedEmailId={selectedEmailId}
             onEmailSelect={setSelectedEmailId}
-            onFetchEmails={handleFetchEmails}
-            isLoading={fetchingEmails}
+            onOpenFetchModal={() => setFetchModalOpen(true)}
+            isLoading={fetchingEmails || buildingProfile}
+            processingEmailIds={processingEmailIds}
             error={emailError}
+            insightsByEmail={insightsByEmail}
           />
         </Box>
         

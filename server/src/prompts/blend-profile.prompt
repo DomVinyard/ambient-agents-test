@@ -10,7 +10,7 @@ input:
     properties:
       category: 
         type: string
-        enum: [basic, professional, personal, communication, behavioral, psychological, relationships, goals]
+        enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals, style]
       newInsights: 
         type: array
         items:
@@ -336,6 +336,28 @@ user: |
 
   EXCLUDE: Values/beliefs, past achievements, inferred aspirations, general interests
   WRITING STYLE: Group by timeframe (short/medium/long-term) and organize professional vs. personal.
+  {{/if}}
+
+  {{#if isStyle}}
+  **COMMUNICATION STYLE & PATTERNS FOCUS:**
+  Include ONLY observable communication patterns and style characteristics:
+  • Writing style patterns (formal vs casual tone, structure preferences)
+  • Language patterns and vernacular usage
+  • Greeting styles and salutation preferences
+  • Communication rhythm and frequency patterns
+  • Technical language vs plain language preferences
+  • Punctuation patterns (use of exclamation marks, ellipses)
+  • Email signature styles and professional presentation
+  • Response patterns and communication timing
+  • Politeness conventions and cultural communication markers
+  • Professional vs personal communication style differences
+  • Abbreviation usage and text shortcuts
+  • Communication formality adaptation by context
+  • Emotional expression patterns in writing
+  • Question asking styles and information gathering approaches
+
+  EXCLUDE: Personality inferences, preferences without evidence, assumptions about style motivation
+  WRITING STYLE: Group by context (professional vs personal) and describe patterns factually with evidence.
   {{/if}}
 
   ## OUTPUT REQUIREMENTS:

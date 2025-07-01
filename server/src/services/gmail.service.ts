@@ -46,10 +46,14 @@ export class GmailService {
 
 
 
-  async syncEmails(tokens: any) {
+  async syncEmails(tokens: any, options?: { sentCount?: number; receivedCount?: number }) {
     const tempOAuth2 = new google.auth.OAuth2(this.CLIENT_ID, this.CLIENT_SECRET, this.REDIRECT_URI);
     tempOAuth2.setCredentials(tokens);
     const gmail = google.gmail({ version: 'v1', auth: tempOAuth2 });
+
+    // Use provided counts or fallback to default
+    const receivedCount = options?.receivedCount ?? this.EMAIL_FETCH_LIMIT_PER_TYPE;
+    const sentCount = options?.sentCount ?? this.EMAIL_FETCH_LIMIT_PER_TYPE;
 
     // Fetch Gmail user profile
     const profile = await gmail.users.getProfile({ userId: 'me' });
@@ -77,14 +81,14 @@ export class GmailService {
     // Fetch inbox emails
     const inboxRes: GaxiosResponse<gmail_v1.Schema$ListMessagesResponse> = await gmail.users.messages.list({
       userId: 'me',
-      maxResults: this.EMAIL_FETCH_LIMIT_PER_TYPE,
+      maxResults: receivedCount,
       labelIds: ['INBOX']
     });
     
     // Fetch sent emails
     const sentRes: GaxiosResponse<gmail_v1.Schema$ListMessagesResponse> = await gmail.users.messages.list({
       userId: 'me',
-      maxResults: this.EMAIL_FETCH_LIMIT_PER_TYPE,
+      maxResults: sentCount,
       labelIds: ['SENT']
     });
     

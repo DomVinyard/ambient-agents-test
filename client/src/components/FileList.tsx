@@ -12,7 +12,22 @@ interface FileListProps {
 }
 
 export default function FileList({ files, selectedFile, onFileSelect, onDeleteFile, onDeleteAll }: FileListProps) {
+  const fileEntries = Object.entries(files);
   const [contextMenuFile, setContextMenuFile] = useState<string | null>(null);
+  
+  // Emoji map for profile categories
+  const categoryEmojis: Record<string, string> = {
+    behavioral: '🎯',
+    goals: '🚀', 
+    relationships: '👥',
+    professional: '💼',
+    personal: '❤️',
+    accounts: '🔐',
+    style: '✨',
+    communication: '💬',
+    general: '📄',
+    bio: '📄'
+  };
   
   // Group files by category (extracted from filename)
   const getCategory = (fileName: string) => {
@@ -20,18 +35,10 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
     return baseName === 'bio' ? 'general' : baseName;
   };
 
-  // Sort files with 'basic' always at the top, then alphabetically
-  const fileEntries = Object.entries(files).sort(([fileNameA], [fileNameB]) => {
-    const categoryA = getCategory(fileNameA);
-    const categoryB = getCategory(fileNameB);
-    
-    // 'basic' always comes first
-    if (categoryA === 'basic' && categoryB !== 'basic') return -1;
-    if (categoryB === 'basic' && categoryA !== 'basic') return 1;
-    
-    // Otherwise sort alphabetically
-    return categoryA.localeCompare(categoryB);
-  });
+  const getCategoryWithEmoji = (category: string) => {
+    const emoji = categoryEmojis[category] || '📄';
+    return `${emoji} ${category}`;
+  };
 
   const handleRightClick = (e: React.MouseEvent, fileName: string) => {
     e.preventDefault();
@@ -39,7 +46,8 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
   };
 
   const handleDeleteFile = (fileName: string) => {
-    if (window.confirm(`Are you sure you want to delete ${getCategory(fileName)}.md? This action cannot be undone.`)) {
+    const category = getCategory(fileName);
+    if (window.confirm(`Are you sure you want to delete ${getCategoryWithEmoji(category)}.md? This action cannot be undone.`)) {
       onDeleteFile(fileName);
     }
     setContextMenuFile(null);
@@ -66,7 +74,7 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
         {/* Content */}
         <Box flex="1" w="100%" overflowY="auto" pt={fileEntries.length > 0 ? 0 : 4}>
           {fileEntries.length === 0 && (
-            <Box p={4} textAlign="center" py={8}>
+            <Box p={4} textAlign="center" py={8} mt={'50%'}>
               <FileText size={32} color="#9CA3AF" style={{ margin: '0 auto' }} />
               <Text mt={3} fontSize="sm" color="gray.500">
                 No profile yet
@@ -101,7 +109,7 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
                     >
                       <Flex justify="space-between" align="center" mb={1}>
                         <Text fontSize="sm" fontWeight="medium" color="gray.800" noOfLines={1} flex="1">
-                          {category}
+                          {getCategoryWithEmoji(category)}
                         </Text>
                         <Badge 
                           colorScheme="gray" 
@@ -121,7 +129,7 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
                         onClick={() => handleDeleteFile(fileName)}
                         color="red.600"
                       >
-                        Delete {category}.md
+                        Delete {getCategoryWithEmoji(category)}.md
                       </MenuItem>
                     </MenuList>
                   </Menu>

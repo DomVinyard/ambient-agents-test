@@ -9,6 +9,8 @@ export interface Email {
   id: string;
   subject: string;
   from: string;
+  to?: string;
+  cc?: string;
   date: string;
   snippet: string;
   fullBody: string;

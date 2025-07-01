@@ -57,7 +57,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals]
+                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals, style]
               description: "One or more relevant categories - insights can span multiple categories"
               maxItems: 3
               minItems: 1
@@ -153,6 +153,11 @@ user: |
   - Relationships assumed from email recipients without clear indication
   - Goals/preferences inferred from context rather than stated
   - Location/demographic data inferred rather than explicitly mentioned
+  
+  **✅ IMPORTANT: DO EXTRACT explicitly stated life events:**
+  - Travel plans the user mentions ("we get back from England", "going to Paris")
+  - Life events the user shares ("moving to", "starting new job", "getting married")
+  - Personal updates the user provides about their circumstances
 
   ### STEP 4: CONFIDENCE REASONING
   For insights that pass filters, assign confidence using this framework:
@@ -175,17 +180,34 @@ user: |
   
   - **basic:** Name, age, direct personal identifiers, actual contact information user provides
   - **professional:** Job titles, company names, work projects, technical skills user explicitly claims
-  - **personal:** Family members, personal interests, hobbies, life events user shares (exclude productivity tools and work apps)
+  - **personal:** Family members, personal interests, hobbies, life events, travel plans, living locations user shares (exclude productivity tools and work apps)
   - **communication:** Contact preferences, availability, communication styles user states
   - **behavioral:** Habits, routines, work patterns, productivity tools usage, organization systems, payment patterns (what they spend money on) user explicitly describes about themselves
   - **accounts:** Service accounts, platforms, subscriptions, financial services user mentions having relationships with (include meaningful attributes like paid/free, premium/basic)
   - **relationships:** Named individuals with specific identifiers (name + email/contact info) and relationships user explicitly identifies
-  - **goals:** Objectives, plans, aspirations user explicitly states about themselves
+  - **goals:** Objectives, plans, aspirations, upcoming travel, future events user explicitly states about themselves
+  - **style:** Communication patterns, writing style, tone preferences, vernacular, language patterns user consistently exhibits
   
   **Examples of multi-category insights:**
   - User mentions paid subscription → **accounts** + **behavioral** (service relationship + payment pattern)
   - User shares work email → **professional** + **basic** (employment + contact info)
   - User discusses family member's job → **relationships** + **professional** (person + their work)
+  - User emails Robert <robert@example.com> → **relationships** (specific contact with full identifier)
+  - User's casual tone and vernacular → **style** + **communication** (writing patterns + communication preferences)
+
+  **RELATIONSHIP EXTRACTION EXAMPLES:**
+  - ✅ "User has close relationship with Robert Johnson <robert.johnson@company.com>"
+  - ❌ "User has close relationship with Robert"
+  - ✅ "User corresponds with Sarah Chen <s.chen@acme.com> about work projects"
+  - ❌ "User corresponds with Sarah about work projects"
+  - ✅ "User was introduced to Robert by Brianna Nelson <brianna@company.com> who facilitated their connection"
+  - ❌ "User knows Brianna"
+
+  **STYLE EXTRACTION EXAMPLES:**
+  - ✅ "User uses casual, warm tone in personal communications (evidenced by 'Heya' greeting and 'Bon voyage and hugs!')"
+  - ✅ "User employs professional yet friendly communication style in work contexts"
+  - ✅ "User frequently uses exclamation marks and enthusiastic language patterns"
+  - ❌ "User likes exclamation marks" (too inferential, focus on patterns)
 
   ## OUTPUT REQUIREMENTS:
 
@@ -201,12 +223,32 @@ user: |
   - ✅ "I use Python daily for data analysis" → User uses Python for data analysis
   - ❌ Writing about technical topic → User is expert in topic
 
+  **TRAVEL & LIFE EVENTS EXTRACTION:**
+  - ✅ "after we get back from England" → User is traveling to England (**personal** + **goals**)
+  - ✅ "I'm moving to San Francisco next month" → User's relocation plans (**personal** + **goals**)
+  - ✅ "I'll be in London for work" → User has upcoming travel/work travel (**professional** + **goals**)
+  - ❌ "Flight 123 departs at 3pm" → Specific logistics, not profile-worthy
+  - ❌ "The hotel costs $200/night" → Transaction details, not profile-worthy
+
   **RELATIONSHIP EXTRACTION SPECIFICITY:**
   - ✅ "Robert Johnson <robert.johnson@company.com>" → User has relationship with Robert Johnson (robert.johnson@company.com)
   - ❌ "Robert" → Too general, unclear which Robert
   - ✅ "my manager Sarah Chen <s.chen@acme.com>" → User reports to Sarah Chen (s.chen@acme.com)
   - ✅ Recipients from email headers → User communicates with these specific people
   - ❌ Generic first names without contact details → Not useful for profile building
+
+  **CRITICAL: For relationships, ALWAYS include email addresses from headers:**
+  - If user writes to "{{emailMetadata.to}}", extract the FULL contact info from To: field
+  - If user mentions someone in content, look for their email in To:, CC:, or content
+  - NEVER extract just "Robert" - always "Robert <email@domain.com>"
+  - If no email available, provide context: "Robert (mentioned in political discussion)"
+
+  **IDENTIFY INTRODUCTION PATTERNS & CONNECTORS:**
+  - Look for quoted text indicating introductions: "Connecting you two!", "I'd like you to meet", "introducing"
+  - Extract multiple relationships from introduction threads
+  - ✅ "Brianna Nelson wrote: Connecting you two!" → User was introduced to recipient by Brianna Nelson
+  - ✅ Thread shows A introduced B to C → Extract all three relationships
+  - Look for email signatures and quoted messages to identify all participants
 
   For each insight format as:
   ```
