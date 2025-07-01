@@ -1,7 +1,7 @@
 ---
-model: openai/gpt-4o-mini
+model: openai/o4-mini
 config:
-  temperature: 0.3
+  temperature: 0.1
 response_format:
   type: json_object
 input:
@@ -10,7 +10,28 @@ input:
     properties:
       emailContent: 
         type: string
-    required: [emailContent]
+        description: "The main content/body of the email"
+      emailDate:
+        type: string
+        description: "The date this email was sent/received in YYYY-MM-DD format"
+      emailMetadata:
+        type: object
+        properties:
+          subject:
+            type: string
+            description: "Email subject line"
+          sender:
+            type: string
+            description: "Full sender information (Name <email@domain.com>)"
+          senderDomain:
+            type: string
+            description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
+          emailType:
+            type: string
+            enum: ["inbox", "sent"]
+            description: "Whether this was received or sent by the user"
+        required: [subject, sender, senderDomain, emailType]
+    required: [emailContent, emailDate, emailMetadata]
 output:
   schema:
     type: object
@@ -20,42 +41,141 @@ output:
         items:
           type: object
           properties:
-            category:
-              type: string
-              enum: [basic, professional, personal, communication, behavioral, technical, geographic, financial, health, relationships, goals, values]
-              description: "Category type: use 'basic' for fundamental identity info (name, email, core details), 'professional' for work-related insights, 'personal' for family/lifestyle, etc."
+            categories:
+              type: array
+              items:
+                type: string
+                enum: [basic, professional, personal, communication, behavioral, psychological, relationships, goals]
+              description: "SINGLE category only - choose the most specific one"
+              maxItems: 1
+              minItems: 1
             insight:
               type: string
-              description: "The specific insight about the user"
+              description: "Factual statement with confidence language and context awareness"
             confidence:
               type: number
-              minimum: 0
+              minimum: 0.5
               maximum: 1
-              description: "Confidence level of this inference"
+              description: "Confidence level after reasoning about source, context, and plausibility"
             evidence:
               type: string
-              description: "What in the email supports this inference"
-          required: [category, insight, confidence, evidence]
+              description: "Direct quote or specific reference from the email"
+            extractedOn:
+              type: string
+              description: "The email date for temporal context"
+            reasoning:
+              type: string
+              description: "Brief explanation of why this confidence level was assigned"
+          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
     required: [inferences]
 ---
 user: |
-  Analyze this SENT email to extract factual insights about the user (the author/sender of this email).
+  Analyze this SENT email to extract factual insights about the USER (email author), using advanced context reasoning.
 
-  CRITICAL: This is an email the USER WROTE. Extract insights about the user based on their writing style, content, and what they reveal about themselves.
+  Email Date: {{emailDate}}
+  
+  **EMAIL METADATA:**
+  Subject: {{emailMetadata.subject}}
+  From: {{emailMetadata.sender}}
+  Domain: {{emailMetadata.senderDomain}}
+  Type: {{emailMetadata.emailType}}
 
-  Look for evidence about the user such as:
-  • The user's job role, responsibilities, projects, or industry (based on what they discuss)
-  • The user's communication style, personality, and tone
-  • The user's expertise, knowledge areas, or technical skills
-  • The user's professional relationships and network
-  • The user's schedule, availability patterns, or work habits
-  • The user's goals, priorities, concerns, or challenges
-  • The user's location, travel, or time zone references
-  • Personal details the user shares about themselves
-
-  Email data:
+  **EMAIL CONTENT:**
   {{emailContent}}
 
-  Extract 1-5 insights ONLY about the USER (email author) where there is strong evidence. Be conservative - it's better to extract fewer high-quality insights than to make assumptions.
+  ## MULTI-STEP REASONING PROCESS:
 
-  Return only valid JSON that matches the schema above. 
+  ### STEP 1: COMMUNICATION & TYPE ANALYSIS
+  Since this is a SENT email, analyze the USER'S communication and context:
+  
+  **Email Classification:**
+  - **What type of email is this?** (Personal communication, work correspondence, service inquiry, automated/template response)
+  - **Is this genuine user-authored content?** (vs auto-generated, template-based, or forwarded content)
+  
+  **Communication Analysis:**
+  - **Who is the user writing to?** (Personal contact, colleague, service, stranger)
+  - **What is the purpose of this email?** (Personal, work, inquiry, response)
+  - **What tone/context is the user using?** (Formal, casual, professional, personal)
+  - **How much personal information would the user reasonably share in this context?**
+
+  ### STEP 2: SELF-DISCLOSURE EVALUATION
+  For each potential insight, evaluate what the USER revealed about themselves:
+  - **Did the user explicitly state this about themselves?** (Direct self-disclosure)
+  - **Is this a natural thing for the user to mention in this context?**
+  - **Could this be copied/quoted content vs. original user content?**
+  - **Does this reflect the user's actual situation vs. hypothetical/example content?**
+
+  ### STEP 3: PATTERN RECOGNITION & RED FLAGS
+  Apply common sense filters - REJECT insights that show these patterns:
+  
+  **🚩 NON-PERSONAL CONTENT:**
+  - Copied/pasted content from other sources
+  - Template language or boilerplate text
+  - Examples or hypothetical scenarios the user is discussing
+  - Technical documentation or instructions the user is sharing
+  - Auto-generated email content or responses
+  
+  **🚩 PROFESSIONAL CONTEXT CONFUSION:**
+  - Work responsibilities that don't indicate personal skills
+  - Company information that doesn't reflect user's personal details
+  - Professional jargon that doesn't indicate personal expertise
+  - Role-specific language that could be template-based
+  
+  **🚩 INFERENTIAL OVERREACH:**
+  - Personality traits assumed from writing style alone
+  - Skills inferred from technical discussion without explicit claim
+  - Relationships assumed from email recipients without clear indication
+  - Goals/preferences inferred from context rather than stated
+  - Location/demographic data inferred rather than explicitly mentioned
+
+  ### STEP 4: CONFIDENCE REASONING
+  For insights that pass filters, assign confidence using this framework:
+
+  **95-100% confidence:** Direct, explicit self-statements with clear personal context
+  **85-94% confidence:** Clear personal information shared in appropriate context
+  **75-84% confidence:** Likely personal information with some contextual uncertainty
+  **65-74% confidence:** Probable personal information but could have alternative explanations
+  **50-64% confidence:** Possible personal information with significant uncertainty
+
+  **CONFIDENCE LANGUAGE:**
+  - 95-100%: "It is certain that [fact]"
+  - 85-94%: "It is very likely that [fact]"
+  - 75-84%: "It appears that [fact]"
+  - 65-74%: "We think [fact]"
+  - 50-64%: "It is possible that [fact]"
+
+  ## STRICT CATEGORY DEFINITIONS:
+  - **basic:** Name, age, direct personal identifiers, actual contact information user provides
+  - **professional:** Job titles, company names, work projects, technical skills user explicitly claims
+  - **personal:** Family members, personal interests, hobbies, life events user shares
+  - **communication:** Contact preferences, availability, communication styles user states
+  - **behavioral:** Habits, routines, work patterns user explicitly describes about themselves
+  - **psychological:** Personality traits, emotional patterns user explicitly mentions about themselves
+  - **relationships:** Named individuals and relationships user explicitly identifies
+  - **goals:** Objectives, plans, aspirations user explicitly states about themselves
+
+  ## OUTPUT REQUIREMENTS:
+
+  1. **Apply the 4-step reasoning process** for every potential insight
+  2. **Extract 0-8 insights maximum** - quality over quantity
+  3. **Include reasoning** for each confidence assignment
+  4. **Focus on explicit self-disclosure, not inferred traits**
+  5. **Distinguish between what user claims vs. what they discuss/mention**
+
+  **KEY DISTINCTION:** 
+  - ✅ "I work at Google" → User works at Google
+  - ❌ "Let me help you with Python" → User knows Python (could be offering to find resources)
+  - ✅ "I use Python daily for data analysis" → User uses Python for data analysis
+  - ❌ Writing about technical topic → User is expert in topic
+
+  For each insight format as:
+  ```
+  insight: "[Confidence language] [specific fact] (as of {{emailDate}})"
+  evidence: "[exact quote from user's own words]"
+  extractedOn: "{{emailDate}}"
+  reasoning: "[Brief explanation of confidence level based on directness, context, plausibility]"
+  ```
+
+  **Remember:** Focus on what the user explicitly reveals about themselves, not what can be inferred from their knowledge, writing style, or discussion topics.
+
+  Return only valid JSON. If no clear self-disclosed insights exist, return empty inferences array. 

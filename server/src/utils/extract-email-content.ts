@@ -1,4 +1,5 @@
 import { extractEmailBody } from './extract-email-body';
+import { cleanHtmlContent } from './clean-html-content';
 
 /**
  * Extract readable content from email object
@@ -13,7 +14,23 @@ export function extractEmailContent(emailObj: any): string {
   const date = new Date(parseInt(emailObj.internalDate)).toISOString();
   
   // Extract the full email body content
-  const bodyContent = extractEmailBody(emailObj.payload);
+  let bodyContent = extractEmailBody(emailObj.payload);
+  
+  // If body extraction failed, try to use snippet but clean it first
+  if (!bodyContent && emailObj.snippet) {
+    const snippet = emailObj.snippet;
+    // Check if snippet contains HTML entities or tags and clean it
+    if (snippet.includes('&') || snippet.includes('<') || snippet.length > 200) {
+      bodyContent = cleanHtmlContent(snippet);
+    } else {
+      bodyContent = snippet;
+    }
+  }
+  
+  // Final fallback
+  if (!bodyContent) {
+    bodyContent = 'No content available';
+  }
   
   return `
 Subject: ${subject}
@@ -24,6 +41,6 @@ Date: ${date}
 Labels: ${emailObj.labelIds?.join(', ') || 'none'}
 
 Email Body:
-${bodyContent || emailObj.snippet || 'No content available'}
+${bodyContent}
 `.trim();
 } 

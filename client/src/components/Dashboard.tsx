@@ -228,14 +228,18 @@ export default function Dashboard({ onLogout }: DashboardProps) {
     setBioError(null);
     
     try {
-      // Group insights by category
-      const insightsByCategory = insights.reduce((acc, insight) => {
-        if (!acc[insight.category]) {
-          acc[insight.category] = [];
-        }
-        acc[insight.category].push(insight);
-        return acc;
-      }, {} as Record<string, any[]>);
+      // Group insights by category - now handling multiple categories per insight
+      const insightsByCategory: Record<string, any[]> = {};
+      
+      insights.forEach(insight => {
+        // Each insight can belong to multiple categories
+        insight.categories.forEach(category => {
+          if (!insightsByCategory[category]) {
+            insightsByCategory[category] = [];
+          }
+          insightsByCategory[category].push(insight);
+        });
+      });
 
       const tokens = getAuthTokens();
       
@@ -260,7 +264,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
       
       toast({
         title: 'Applied to Bio',
-        description: `Intelligently updated ${Object.keys(insightsByCategory).length} category file(s) using AI.`,
+        description: `Intelligently updated ${Object.keys(insightsByCategory).length} category file(s) using AI. Some insights were applied to multiple categories.`,
         status: 'success',
         duration: 3000,
         isClosable: true,
@@ -372,7 +376,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
           <Box w="20%" h="100%" bg="gray.100" borderRight="1px solid" borderColor="gray.200" />
         )}
         
-        {selectedEmail && (insights.length > 0 || extractingInsights || insightError) ? (
+        {selectedEmail && (insights.length > 0 || extractingInsights || insightError || (selectedEmailId && selectedEmailId in insightsByEmail)) ? (
           <Box w="20%" h="100%">
             <InsightsViewer
               insights={insights}
@@ -381,6 +385,7 @@ export default function Dashboard({ onLogout }: DashboardProps) {
               isExtracting={extractingInsights}
               error={bioError || insightError}
               onClose={handleCloseEmail}
+              hasAttemptedExtraction={selectedEmailId ? selectedEmailId in insightsByEmail : false}
             />
           </Box>
         ) : (

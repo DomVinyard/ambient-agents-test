@@ -1,4 +1,4 @@
-import { Box, VStack, Button, Text, Badge, List, ListItem, Spinner, Alert, AlertIcon, IconButton, Flex } from '@chakra-ui/react';
+import { Box, VStack, Button, Text, Badge, List, ListItem, Spinner, Alert, AlertIcon, IconButton, Flex, Center } from '@chakra-ui/react';
 import { FileText, Lightbulb, X } from 'lucide-react';
 import { Insight } from '../types';
 
@@ -9,6 +9,7 @@ interface InsightsViewerProps {
   isExtracting?: boolean;
   error: string | null;
   onClose?: () => void;
+  hasAttemptedExtraction?: boolean;
 }
 
 export default function InsightsViewer({ 
@@ -17,7 +18,8 @@ export default function InsightsViewer({
   isLoading, 
   isExtracting = false,
   error,
-  onClose
+  onClose,
+  hasAttemptedExtraction = false
 }: InsightsViewerProps) {
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
@@ -81,12 +83,18 @@ export default function InsightsViewer({
 
           {insights.length === 0 && !isLoading && !isExtracting && (
             <Box textAlign="center" py={8}>
+              <Center>
               <Lightbulb size={48} color="#CBD5E0" />
+              </Center>
+              
               <Text mt={4} fontSize="md" color="gray.500">
-                No insights extracted yet
+                {hasAttemptedExtraction ? "No insights found" : "No insights extracted yet"}
               </Text>
               <Text fontSize="sm" color="gray.400">
-                Select an email and click "Extract Insights" to see AI analysis
+                {hasAttemptedExtraction 
+                  ? "The AI analysis completed but didn't find any high-confidence insights in this email"
+                  : "Select an email and click \"Extract Insights\" to see AI analysis"
+                }
               </Text>
             </Box>
           )}
@@ -114,13 +122,17 @@ export default function InsightsViewer({
                     >
                       <VStack spacing={2} align="stretch">
                         <Box>
-                          <Badge 
-                            colorScheme={getCategoryColor(insight.category)} 
-                            size="sm" 
-                            mb={2}
-                          >
-                            {insight.category.toUpperCase()}
-                          </Badge>
+                          <Flex gap={1} mb={2} flexWrap="wrap">
+                            {insight.categories.map((category, categoryIndex) => (
+                              <Badge 
+                                key={categoryIndex}
+                                colorScheme={getCategoryColor(category)} 
+                                size="sm"
+                              >
+                                {category.toUpperCase()}
+                              </Badge>
+                            ))}
+                          </Flex>
                           <Text fontSize="sm" fontWeight="medium" color="gray.800">
                             {insight.insight}
                           </Text>
@@ -147,13 +159,6 @@ export default function InsightsViewer({
                   </ListItem>
                 ))}
               </List>
-
-              <Box mt={4} p={3} bg="purple.50" borderRadius="md" border="1px solid" borderColor="purple.200">
-                <Text fontSize="xs" color="purple.700">
-                  💡 These insights will be added to your bio when you click "Apply to Bio". 
-                  You can review and edit them in the bio column.
-                </Text>
-              </Box>
             </VStack>
           )}
         </Box>

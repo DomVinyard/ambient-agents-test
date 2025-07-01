@@ -186,6 +186,7 @@ app.post('/api/gmail/extract-insights', async (req, res) => {
       fullBody: emailData.fullBody,
       internalDate: new Date(emailData.date).getTime().toString(),
       labelIds: emailData.labelIds || [],
+      emailType: emailData.emailType || 'unknown', // Ensure emailType is passed through
       payload: {
         headers: [
           { name: 'Subject', value: emailData.subject },

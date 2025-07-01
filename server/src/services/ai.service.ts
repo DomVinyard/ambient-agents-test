@@ -75,7 +75,56 @@ export class AIService {
    */
   async processMessage(emailObj: any, userId: string): Promise<{ inferences: any[] }> {
     try {
-      const emailContent = extractEmailContent(emailObj);
+      // Use fullBody from frontend if available, otherwise extract from email object
+      let emailContent: string;
+      if (emailObj.fullBody && emailObj.fullBody.trim().length > 0) {
+        emailContent = emailObj.fullBody;
+        console.log('✅ Using fullBody from frontend');
+      } else {
+        emailContent = extractEmailContent(emailObj);
+        console.log('⚠️ Extracting content from email object (fullBody not available)');
+      }
+      
+      // DEBUG: Check for Schooner Bay
+      console.log('Contains "Schooner Bay":', emailContent.includes('Schooner Bay'));
+      console.log('Content length:', emailContent.length);
+      
+      // Extract email date from the email object
+      let emailDate: string;
+      if (emailObj.internalDate) {
+        // Convert Gmail's internalDate (milliseconds) to YYYY-MM-DD format
+        emailDate = new Date(parseInt(emailObj.internalDate)).toISOString().split('T')[0];
+      } else if (emailObj.payload?.headers) {
+        // Try to extract from headers
+        const dateHeader = emailObj.payload.headers.find((h: any) => h.name === 'Date');
+        if (dateHeader) {
+          emailDate = new Date(dateHeader.value).toISOString().split('T')[0];
+        } else {
+          emailDate = new Date().toISOString().split('T')[0]; // Fallback to today
+        }
+      } else {
+        emailDate = new Date().toISOString().split('T')[0]; // Fallback to today
+      }
+
+      // Extract rich metadata for context reasoning
+      const headers = emailObj.payload?.headers || [];
+      const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
+      const sender = headers.find((h: any) => h.name === 'From')?.value || '';
+      
+      // Extract sender domain
+      const senderEmailMatch = sender.match(/<([^>]+)>/) || sender.match(/([^\s]+@[^\s]+)/);
+      const senderEmail = senderEmailMatch ? senderEmailMatch[1] || senderEmailMatch[0] : sender;
+      const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1] : 'unknown';
+
+      // Simplified metadata - let the prompts handle classification during source analysis
+      const emailMetadata = {
+        subject,
+        sender,
+        senderDomain,
+        emailType: emailObj.emailType || 'inbox'
+      };
+
+
       
       // Determine which prompt file to use based on email type
       const promptFilename = emailObj.emailType === 'sent' 
@@ -84,7 +133,9 @@ export class AIService {
       
       // Load and render the appropriate prompt
       const { modelName, promptText, schema, config } = await this.loadPromptFile(promptFilename, {
-        emailContent
+        emailContent,
+        emailDate,
+        emailMetadata
       });
 
       const result = await generateObject({
@@ -116,18 +167,34 @@ export class AIService {
     userInfo: any;
   }): Promise<string> {
     try {
-      // Convert confidence scores to natural language modifiers
+      const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Convert confidence scores to natural language modifiers (keep for backward compatibility)
       const insightsWithLanguage = newInsights.map(insight => ({
         ...insight,
         confidenceLanguage: getConfidenceLanguage(insight.confidence)
       }));
 
+      // Create boolean flags for each category to avoid needing custom Handlebars helpers
+      const categoryFlags = {
+        isBasic: category === 'basic',
+        isProfessional: category === 'professional', 
+        isPersonal: category === 'personal',
+        isCommunication: category === 'communication',
+        isBehavioral: category === 'behavioral',
+        isPsychological: category === 'psychological',
+        isRelationships: category === 'relationships',
+        isGoals: category === 'goals'
+      };
+
       // Load and render the blend-profile prompt
       const { modelName, promptText, schema, config } = await this.loadPromptFile('blend-profile', {
         category,
+        ...categoryFlags,
         newInsights: insightsWithLanguage,
         existingContent,
-        userInfo
+        userInfo,
+        todaysDate
       });
 
       const result = await generateObject({

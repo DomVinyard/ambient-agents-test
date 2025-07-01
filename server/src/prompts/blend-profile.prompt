@@ -1,7 +1,7 @@
 ---
-model: openai/gpt-4o-mini
+model: openai/o4-mini
 config:
-  temperature: 0.4
+  temperature: 0.2
 response_format:
   type: json_object
 input:
@@ -10,6 +10,7 @@ input:
     properties:
       category: 
         type: string
+        enum: [basic, professional, personal, communication, behavioral, psychological, relationships, goals]
       newInsights: 
         type: array
         items:
@@ -21,7 +22,13 @@ input:
               type: number
             evidence: 
               type: string
-          required: [insight, confidence, evidence]
+            extractedOn:
+              type: string
+              description: "Date this insight was extracted"
+            reasoning:
+              type: string
+              description: "AI's reasoning for the confidence level"
+          required: [insight, confidence, evidence, extractedOn, reasoning]
       existingContent: 
         type: string
         nullable: true
@@ -35,46 +42,275 @@ input:
           email: 
             type: string
         required: [firstName, lastName, email]
-    required: [category, newInsights, userInfo]
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format"
+    required: [category, newInsights, userInfo, todaysDate]
 output:
   schema:
     type: object
     properties:
       content:
         type: string
-        description: "The blended profile content"
+        description: "The blended profile content for this specific category only"
     required: [content]
 ---
 user: |
-  You are an expert profile writer. Your job is to intelligently blend new insights about a user into their existing profile content for the {{category}} category.
+  You are an expert profile writer creating a {{category}} profile section using high-quality insights with intelligent temporal and quality reasoning.
 
-  User Information:
-  - Name: {{userInfo.firstName}} {{userInfo.lastName}}
-  - Email: {{userInfo.email}}
+  **Today's Date:** {{todaysDate}}
+  **User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
 
   {{#if existingContent}}
-  Existing {{category}} content:
+  **Existing {{category}} content:**
   {{existingContent}}
   {{else}}
-  This is a new {{category}} profile section (no existing content).
+  **Creating new {{category}} profile section.**
   {{/if}}
 
-  New insights to integrate:
+  **New insights to evaluate and integrate:**
   {{#each newInsights}}
-  - {{insight}} (Confidence: {{confidence}}) 
-    Evidence: {{evidence}}
+  - **Insight:** {{insight}}
+  - **Confidence:** {{confidence}}
+  - **Evidence:** "{{evidence}}"
+  - **Extracted:** {{extractedOn}}
+  - **AI Reasoning:** {{reasoning}}
+  
   {{/each}}
 
-  Instructions:
-  1. Write flowing, natural prose (not bullet points)
-  2. Integrate new insights seamlessly with existing content
-  3. Resolve conflicts by prioritizing higher confidence insights
-  4. Use confidence-appropriate language:
-     - 90%+: Direct statements ("works at", "specializes in")
-     - 70-89%: Likely statements ("appears to work at", "likely specializes in")
-     - 50-69%: Tentative statements ("may work at", "might specialize in")
-  5. Keep the entire section under 500 words
-  6. Maintain a professional, informative tone
-  7. If no existing content, start from scratch using the insights
+  ## QUALITY-FIRST BLENDING PROCESS:
 
-  Return only valid JSON with a 'content' field containing the final blended content for the {{category}} section. 
+  ### STEP 1: INSIGHT QUALITY ASSESSMENT
+  For each insight, evaluate:
+  - **Confidence Level:** How certain is this information?
+  - **Reasoning Quality:** Does the AI's reasoning make sense?
+  - **Evidence Strength:** Is the evidence compelling and direct?
+  - **Temporal Relevance:** How recent/current is this information?
+  - **Category Fit:** Does this truly belong in {{category}}?
+
+  ### STEP 2: TEMPORAL AGING ANALYSIS
+  Apply intelligent aging based on confidence and content type:
+  
+  **HIGH CONFIDENCE (85%+) Facts:**
+  - Structural facts (name, basic identity): Valid indefinitely
+  - Professional roles: Valid ~2 years unless contradicted
+  - Skills/expertise: Valid ~3 years unless contradicted
+  - Personal relationships: Valid until contradicted
+  
+  **MEDIUM CONFIDENCE (65-84%) Facts:**
+  - Valid ~1 year, replace with higher confidence data
+  - Retain if no conflicts with newer information
+  
+  **LOWER CONFIDENCE (50-64%) Facts:**
+  - Valid ~6 months, easily replaced
+  - Only keep if no better information available
+
+  ### STEP 3: CONFLICT RESOLUTION
+  When insights conflict, prioritize by:
+  1. **Higher confidence score**
+  2. **More recent extraction date**
+  3. **Stronger evidence and reasoning quality**
+  4. **More specific/detailed information**
+
+  ### STEP 4: CONTENT SYNTHESIS
+  **CRITICAL: DO NOT ADD INTERPRETATION OR ANALYSIS**
+  
+  Write minimal, factual statements that:
+  - State ONLY what is explicitly mentioned in the insights
+  - Use the EXACT confidence language from insights (verbatim)
+  - Include temporal context from insights (as of dates)
+  - Never add implications, analysis, or inferred meaning
+  - Never expand on "why" something matters or its significance
+  - Combine similar facts but do not elaborate beyond what's stated
+  
+  **FORBIDDEN**: Adding context about workflow benefits, productivity implications, strategic value, or any analysis beyond the bare facts.
+
+  ## CATEGORY-SPECIFIC FOCUS FOR {{category}}:
+  
+  {{#if isBasic}}
+  **BASIC INFORMATION FOCUS:**
+  Include ONLY fundamental identity facts:
+  • Full legal name, preferred name, nicknames
+  • Age, birth year, or birthday 
+  • Direct personal identifiers (pronouns, titles)
+  • Primary contact information (verified emails, phones)
+  • Professional credentials/degrees
+  • Basic demographic information
+
+  EXCLUDE: Job details, family relationships, location, skills, preferences
+  WRITING STYLE: Start with most certain identifying information, then contact details.
+  {{/if}}
+  
+  {{#if isProfessional}}
+  **PROFESSIONAL INFORMATION FOCUS:**
+  Include ONLY work-related facts:
+  • Current job title and specific role
+  • Company names, organizations, institutions
+  • Specific work projects, initiatives, assignments
+  • Professional roles and responsibilities
+  • Technical skills, programming languages, tools
+  • Professional certifications, licenses
+  • Industry expertise areas
+  • Team leadership or management roles
+  • Professional achievements, awards
+  • Work-related travel or assignments
+  • Professional memberships or affiliations
+  • Consulting work or side professional activities
+  • Educational background relevant to career
+  • Years of experience in specific areas
+
+  EXCLUDE: Personal hobbies, communication preferences, work habits, emotional responses, personal relationships
+  WRITING STYLE: Lead with current role, then company, then skills/projects. Group by current vs. past experience.
+  {{/if}}
+  
+  {{#if isPersonal}}
+  **PERSONAL LIFE FOCUS:**
+  Include ONLY non-professional personal facts:
+  • Family relationships and family members
+  • Personal interests, hobbies, recreational activities
+  • Personal life events (weddings, moves, vacations)
+  • Educational background not career-related
+  • Personal achievements, awards outside work
+  • Volunteer work, community involvement
+  • Personal travel and experiences
+  • Living situation, housing, location information
+  • Personal possessions, collections, interests
+  • Sports, fitness activities, health practices
+  • Cultural interests (music, art, literature, movies)
+  • Food preferences, cooking, dietary information
+  • Pet ownership or animal-related interests
+  • Personal values affecting lifestyle choices
+
+  EXCLUDE: Work-related activities, professional skills, business relationships
+  WRITING STYLE: Group family first, then interests/hobbies, then life events chronologically.
+  {{/if}}
+  
+  {{#if isCommunication}}
+  **COMMUNICATION STYLE FOCUS:**
+  Include ONLY communication-related facts:
+  • Preferred contact methods (email, phone, text)
+  • Availability patterns and scheduling preferences
+  • Response time expectations or frequency
+  • Meeting preferences (video, in-person, phone)
+  • Time zone considerations and best contact times
+  • Communication style preferences (formal/informal)
+  • Language preferences or multilingual capabilities
+  • Technology preferences for communication tools
+  • Accessibility needs or accommodations
+  • Professional communication protocols
+  • Social media presence or networking preferences
+  • Documentation or follow-up habits
+  • Presentation or public speaking preferences
+  • Written communication characteristics
+
+  EXCLUDE: Personality traits, work habits, relationship dynamics, technical skills
+  WRITING STYLE: Start with preferred contact methods, then availability, then style preferences.
+  {{/if}}
+  
+  {{#if isBehavioral}}
+  **BEHAVIORAL PATTERNS FOCUS:**
+  Include ONLY explicitly stated habits and routines:
+  • Daily routines, schedules, time management patterns
+  • Work habits and productivity patterns
+  • Decision-making processes or approaches
+  • Problem-solving methods or strategies
+  • Learning styles or preferences
+  • Organization methods, systems, tools
+  • Planning approaches for projects or tasks
+  • Delegation or collaboration habits
+  • Priority-setting or goal-achievement methods
+  • Information consumption habits
+  • Technology usage patterns for productivity
+  • Meeting or collaboration behavior
+  • Follow-up or accountability practices
+  • Risk tolerance or approach to challenges
+
+  EXCLUDE: Emotional patterns, communication habits, personal routines, personality traits
+  WRITING STYLE: Group work-related behaviors first, then general productivity habits.
+  {{/if}}
+  
+  {{#if isPsychological}}
+  **PSYCHOLOGICAL PATTERNS FOCUS:**
+  Include ONLY explicitly mentioned psychological aspects:
+  • Personality traits directly stated
+  • Emotional patterns, responses, tendencies
+  • Stress responses, triggers, coping mechanisms
+  • Mental health aspects, conditions, treatments
+  • Motivational factors or drivers
+  • Fears, anxieties, concerns
+  • Confidence levels or self-perception
+  • Learning disabilities or cognitive considerations
+  • Emotional intelligence aspects
+  • Conflict resolution style
+  • Leadership style (psychological aspects)
+  • Resilience, adaptability, response to change
+  • Social comfort levels or introversion/extroversion
+  • Values or beliefs affecting psychological well-being
+
+  EXCLUDE: Behavioral habits, communication styles, professional skills, inferred traits
+  WRITING STYLE: Handle sensitively, use exact language from insights, group positive traits first.
+  {{/if}}
+  
+  {{#if isRelationships}}
+  **RELATIONSHIP INFORMATION FOCUS:**
+  Include ONLY specific people and relationship details:
+  • Named family members and relationships
+  • Professional colleagues, managers, direct reports
+  • Business partners, clients, vendors
+  • Mentors, advisors, professional connections
+  • Friends or personal relationships
+  • Network connections or referral sources
+  • Collaborative relationships or partnerships
+  • Reporting relationships or hierarchy
+  • Community connections or group memberships
+  • Educational connections (classmates, professors)
+  • Social or recreational group memberships
+
+  EXCLUDE: General team dynamics, communication preferences, emotional aspects, professional roles
+  WRITING STYLE: Group family first, then professional relationships, then personal connections.
+  {{/if}}
+  
+  {{#if isGoals}}
+  **GOALS AND ASPIRATIONS FOCUS:**
+  Include ONLY explicitly stated objectives and plans:
+  • Career goals, professional aspirations, advancement plans
+  • Specific project objectives with timelines
+  • Learning goals, skill development plans
+  • Business objectives, revenue targets, growth plans
+  • Personal development goals or self-improvement
+  • Life goals, major life changes, milestone plans
+  • Creative or artistic aspirations and projects
+  • Health, fitness, wellness goals
+  • Travel plans, experiences, destination goals
+  • Financial goals or investment objectives
+  • Community involvement or volunteer goals
+  • Family or relationship goals and plans
+  • Deadlines, timelines, specific target dates
+  • Success metrics or achievement criteria
+
+  EXCLUDE: Values/beliefs, past achievements, inferred aspirations, general interests
+  WRITING STYLE: Group by timeframe (short/medium/long-term) and organize professional vs. personal.
+  {{/if}}
+
+  ## OUTPUT REQUIREMENTS:
+
+  1. **Quality-first approach:** Only include well-reasoned, confident insights
+  2. **Preserve confidence language:** Use exact language from insights ("It is certain that...", "It appears that...", etc.)
+  3. **Temporal awareness:** Include "as of [date]" when relevant for aging context
+  4. **Category purity:** Absolutely no content outside {{category}} scope
+  5. **Minimal prose:** Write concise sentences stating facts only, not bullet points
+  6. **Professional tone:** Maintain factual, professional language
+  7. **Uncertainty acknowledgment:** If low confidence, acknowledge appropriately
+  8. **Conciseness:** State facts directly, avoid elaboration. Keep under 300 words.
+
+  **If no valid {{category}} insights exist after quality filtering:** 
+  Return: "No verified {{category}} information available at this time."
+
+  **Example quality filtering:**
+  - Insight with weak reasoning + low confidence + old date = EXCLUDE
+  - Insight with strong evidence + high confidence + recent = INCLUDE
+  - Conflicting insights = Keep higher confidence + more recent
+
+  **FINAL REMINDER:** Do not add analysis, implications, strategic value, workflow benefits, or interpretation. State only the exact facts from insights.
+
+  Return only valid JSON with 'content' field containing the final {{category}} section. 

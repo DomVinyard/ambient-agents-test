@@ -12,7 +12,6 @@ interface FileListProps {
 }
 
 export default function FileList({ files, selectedFile, onFileSelect, onDeleteFile, onDeleteAll }: FileListProps) {
-  const fileEntries = Object.entries(files);
   const [contextMenuFile, setContextMenuFile] = useState<string | null>(null);
   
   // Group files by category (extracted from filename)
@@ -20,6 +19,19 @@ export default function FileList({ files, selectedFile, onFileSelect, onDeleteFi
     const baseName = fileName.replace('.md', '');
     return baseName === 'bio' ? 'general' : baseName;
   };
+
+  // Sort files with 'basic' always at the top, then alphabetically
+  const fileEntries = Object.entries(files).sort(([fileNameA], [fileNameB]) => {
+    const categoryA = getCategory(fileNameA);
+    const categoryB = getCategory(fileNameB);
+    
+    // 'basic' always comes first
+    if (categoryA === 'basic' && categoryB !== 'basic') return -1;
+    if (categoryB === 'basic' && categoryA !== 'basic') return 1;
+    
+    // Otherwise sort alphabetically
+    return categoryA.localeCompare(categoryB);
+  });
 
   const handleRightClick = (e: React.MouseEvent, fileName: string) => {
     e.preventDefault();

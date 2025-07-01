@@ -1,7 +1,7 @@
 ---
-model: openai/gpt-4o-mini
+model: openai/o4-mini
 config:
-  temperature: 0.3
+  temperature: 0.1
 response_format:
   type: json_object
 input:
@@ -10,7 +10,28 @@ input:
     properties:
       emailContent: 
         type: string
-    required: [emailContent]
+        description: "The main content/body of the email"
+      emailDate:
+        type: string
+        description: "The date this email was sent/received in YYYY-MM-DD format"
+      emailMetadata:
+        type: object
+        properties:
+          subject:
+            type: string
+            description: "Email subject line"
+          sender:
+            type: string
+            description: "Full sender information (Name <email@domain.com>)"
+          senderDomain:
+            type: string
+            description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
+          emailType:
+            type: string
+            enum: ["inbox", "sent"]
+            description: "Whether this was received or sent by the user"
+        required: [subject, sender, senderDomain, emailType]
+    required: [emailContent, emailDate, emailMetadata]
 output:
   schema:
     type: object
@@ -20,42 +41,149 @@ output:
         items:
           type: object
           properties:
-            category:
-              type: string
-              enum: [basic, professional, personal, communication, behavioral, technical, geographic, financial, health, relationships, goals, values]
-              description: "Category type: use 'basic' for fundamental identity info (name, email, core details), 'professional' for work-related insights, 'personal' for family/lifestyle, etc."
+            categories:
+              type: array
+              items:
+                type: string
+                enum: [basic, professional, personal, communication, behavioral, psychological, relationships, goals]
+              description: "SINGLE category only - choose the most specific one"
+              maxItems: 1
+              minItems: 1
             insight:
               type: string
-              description: "The specific insight about the user"
+              description: "Factual statement with confidence language and context awareness"
             confidence:
               type: number
-              minimum: 0
+              minimum: 0.5
               maximum: 1
-              description: "Confidence level of this inference"
+              description: "Confidence level after reasoning about source, context, and plausibility"
             evidence:
               type: string
-              description: "What in the email supports this inference"
-          required: [category, insight, confidence, evidence]
+              description: "Direct quote or specific reference from the email"
+            extractedOn:
+              type: string
+              description: "The email date for temporal context"
+            reasoning:
+              type: string
+              description: "Brief explanation of why this confidence level was assigned"
+          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
     required: [inferences]
 ---
 user: |
-  Analyze this RECEIVED email to extract factual insights about the user (the recipient of this email).
+  Extract factual insights about the USER (email recipient) from this received email. Focus on what concrete facts the email reveals about the user's life, work, relationships, or circumstances.
 
-  CRITICAL: This is an email the USER RECEIVED. Extract insights about the user based on what others reveal about them, what services contact them, or what context suggests about their life/work.
+  Email Date: {{emailDate}}
+  
+  **EMAIL METADATA:**
+  Subject: {{emailMetadata.subject}}
+  From: {{emailMetadata.sender}}
+  Domain: {{emailMetadata.senderDomain}}
+  Type: {{emailMetadata.emailType}}
 
-  Look for evidence about the user such as:
-  • Services, companies, or platforms the user uses (based on who emails them)
-  • The user's industry or profession (based on professional emails received)
-  • The user's interests, shopping behavior, or subscriptions
-  • The user's location or geographic context
-  • Professional relationships and who considers them important to contact
-  • Events, meetings, or opportunities they're invited to
-  • What others assume about the user's role, status, or needs
-  • Personal details others reference about the user
-
-  Email data:
+  **EMAIL CONTENT:**
   {{emailContent}}
 
-  Extract 1-5 insights ONLY about the USER (email recipient) where there is strong evidence. Be conservative - it's better to extract fewer high-quality insights than to make assumptions.
+  ## EXTRACTION APPROACH:
 
-  Return only valid JSON that matches the schema above. 
+  ### STEP 1: EXTRACT SPECIFIC NOUNS AND FACTS
+  Scan the email for specific factual nouns and statements about the user:
+
+  **HOUSING/LOCATION:**
+  - Apartment complex names, building names, property names
+  - Street addresses, neighborhoods, cities, states
+  - Any location where the user lives or has lived
+
+  **COMPANIES/EMPLOYERS:**
+  - Company names where user works or worked
+  - Job titles, departments, roles
+  - Business names, organizations user is affiliated with
+
+  **PEOPLE:**
+  - Names of family members, friends, colleagues
+  - Relationships (spouse, parent, manager, etc.)
+  - Anyone specifically connected to the user
+
+  **SERVICES/ACCOUNTS:**
+  - Names of services, platforms, apps user has accounts with
+  - Banks, utilities, subscriptions, memberships
+  - Any service provider that knows the user personally
+
+  **PERSONAL DETAILS:**
+  - Names (full name, nicknames, preferred names)
+  - Contact information (emails, phone numbers)
+  - Ages, birthdates, personal identifiers
+
+  ### STEP 2: ANALYZE SENDER-CONTENT RELATIONSHIPS
+  Look for connections between who sent the email and what it contains. This is very important.
+
+  - "Your team at [Property Name]" from housing service → User probably lives at that property
+  - "From your [Department] team at [Company]" → User might work at that company
+  - "Your [Service] representative at [Location]" → User uses that service/location
+  
+  **SENDER-CONTENT CONNECTIONS:**
+  - Housing service + apartment complex name in signature → User's residence
+  - Employer + office location mentioned → User's workplace
+  - Bank + branch details → User's banking relationship
+  - Service provider + account-specific details → User's service relationship
+  
+  **REJECT only if clearly fake:**
+  - Random UUID strings or obviously auto-generated identifiers
+  - Technical tracking data unrelated to user personally
+
+  ### STEP 3: CONFIDENCE ASSIGNMENT
+  Extract insights across confidence levels - don't only go for certainty:
+
+  **85-100% confidence ("It is very likely that..."):**
+  - Housing service mentions apartment complex name → User lives there
+  - Employer mentions company name → User works there
+  - Direct factual statements by appropriate sources
+
+  **70-84% confidence ("It appears that..."):**
+  - Service mentions user details in appropriate context
+  - Clear business relationship implied by receiving emails
+  - Reasonable factual information from credible sources
+
+  **60-69% confidence ("We think..."):**
+  - Plausible information from appropriate sources
+  - Less direct but reasonable inferences
+
+  **50-59% confidence ("It is possible that..."):**
+  - Minimum confidence - still valuable to extract
+
+  ### STEP 4: QUALITY FILTERS
+  **REJECT only if:**
+  - Obviously auto-generated random data (UUID-like strings, random word combinations)
+  - Technical tracking information not related to user personally
+  - Information that contradicts common sense
+
+  **ACCEPT information like:**
+  - Real addresses, apartment names mentioned by housing services
+  - Company names mentioned by employers or colleagues  
+  - Personal details shared by friends/family
+  - Service relationships indicated by receiving legitimate communications
+
+  ## CATEGORY DEFINITIONS:
+  - **basic:** Name, age, contact information, personal identifiers
+  - **professional:** Job, company, work projects, professional skills, work relationships
+  - **personal:** Family, interests, hobbies, life events, living location, personal possessions
+  - **communication:** Contact preferences, communication style, availability patterns
+  - **behavioral:** Habits, routines, work patterns, decision-making approaches
+  - **psychological:** Personality traits, emotional patterns, mental health aspects
+  - **relationships:** Named people and their relationship to the user
+  - **goals:** Stated objectives, plans, aspirations, deadlines
+
+  ## OUTPUT REQUIREMENTS:
+
+  Extract 0-8 insights that are informative about the user. Include insights at different confidence levels (50-100%) - don't only extract things you're certain about.
+
+  For each insight:
+  ```
+  insight: "[Confidence language] [specific fact] (as of {{emailDate}})"
+  evidence: "[exact quote from email]"
+  extractedOn: "{{emailDate}}"
+  reasoning: "[Why this confidence level - source credibility, context appropriateness]"
+  ```
+
+  **CRITICAL:** Extract specific nouns as facts. If the email mentions an apartment complex name, extract it as where the user lives. If it mentions a company name as their workplace, extract it as their employer. Focus on concrete proper nouns, not abstract interpretations.
+
+  Return only valid JSON. If no clear factual insights exist, return empty inferences array. 

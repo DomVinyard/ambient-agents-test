@@ -10,7 +10,14 @@ export function extractEmailBody(payload: any): string {
 
   // If the email has a single body (not multipart)
   if (payload.body?.data) {
-    return decodeBase64(payload.body.data);
+    const decodedContent = decodeBase64(payload.body.data);
+    
+    // Check if this is HTML content that needs cleaning
+    if (payload.mimeType === 'text/html' || decodedContent.includes('<') || decodedContent.includes('&')) {
+      return cleanHtmlContent(decodedContent);
+    }
+    
+    return decodedContent;
   }
 
   // If the email has multiple parts (multipart)

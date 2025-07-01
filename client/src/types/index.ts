@@ -18,8 +18,10 @@ export interface Email {
 }
 
 export interface Insight {
-  category: string;
+  categories: string[];
   insight: string;
   confidence: number;
   evidence: string;
+  extractedOn?: string;
+  reasoning?: string;
 } 
