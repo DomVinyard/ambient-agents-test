@@ -1,5 +1,5 @@
 ---
-model: openai/o4-mini
+model: openai/gpt-4o-mini
 config:
   temperature: 0.1
 response_format:
@@ -26,6 +26,18 @@ input:
           senderDomain:
             type: string
             description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
+          to:
+            type: string
+            description: "Recipients in To field"
+          cc:
+            type: string
+            description: "Recipients in CC field"
+          replyTo:
+            type: string
+            description: "Reply-To address if different from sender"
+          threadId:
+            type: string
+            description: "Gmail thread ID for conversation context"
           emailType:
             type: string
             enum: ["inbox", "sent"]
@@ -45,9 +57,9 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, personal, communication, behavioral, psychological, relationships, goals]
-              description: "SINGLE category only - choose the most specific one"
-              maxItems: 1
+                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals]
+              description: "One or more relevant categories - insights can span multiple categories"
+              maxItems: 3
               minItems: 1
             insight:
               type: string
@@ -70,14 +82,18 @@ output:
     required: [inferences]
 ---
 user: |
-  Analyze this SENT email to extract factual insights about the USER (email author), using advanced context reasoning.
+  Extract PROFILE-WORTHY insights about the USER (email author) from this sent email. Focus on standalone facts that would be useful in a personal profile, not temporary email details or transaction summaries.
 
   Email Date: {{emailDate}}
   
   **EMAIL METADATA:**
   Subject: {{emailMetadata.subject}}
   From: {{emailMetadata.sender}}
+  To: {{emailMetadata.to}}
+  {{#if emailMetadata.cc}}Cc: {{emailMetadata.cc}}{{/if}}
+  {{#if emailMetadata.replyTo}}Reply-To: {{emailMetadata.replyTo}}{{/if}}
   Domain: {{emailMetadata.senderDomain}}
+  Thread ID: {{emailMetadata.threadId}}
   Type: {{emailMetadata.emailType}}
 
   **EMAIL CONTENT:**
@@ -92,8 +108,18 @@ user: |
   - **What type of email is this?** (Personal communication, work correspondence, service inquiry, automated/template response)
   - **Is this genuine user-authored content?** (vs auto-generated, template-based, or forwarded content)
   
+  **Thread Context Analysis:**
+  - **Is this part of an ongoing conversation?** (Check subject for "Re:" or "Fwd:" prefixes)
+  - **What is the conversation context?** (Initial contact, follow-up, reply, ongoing discussion)
+  - **Thread ID:** {{emailMetadata.threadId}} (same thread ID = same conversation)
+  
+  **Recipient Analysis (Critical for Relationship Extraction):**
+  - **Who is the user writing to?** Recipients: {{emailMetadata.to}} {{#if emailMetadata.cc}}CC: {{emailMetadata.cc}}{{/if}}
+  - **Extract FULL contact information:** For any people mentioned, include both name AND email address
+  - **Example:** "Robert Johnson <robert.johnson@company.com>" NOT just "Robert"
+  - **Relationship context:** What does the communication style reveal about their relationship?
+  
   **Communication Analysis:**
-  - **Who is the user writing to?** (Personal contact, colleague, service, stranger)
   - **What is the purpose of this email?** (Personal, work, inquiry, response)
   - **What tone/context is the user using?** (Formal, casual, professional, personal)
   - **How much personal information would the user reasonably share in this context?**
@@ -144,15 +170,22 @@ user: |
   - 65-74%: "We think [fact]"
   - 50-64%: "It is possible that [fact]"
 
-  ## STRICT CATEGORY DEFINITIONS:
+  ## CATEGORY DEFINITIONS:
+  Use 1-3 categories per insight when the insight spans multiple areas:
+  
   - **basic:** Name, age, direct personal identifiers, actual contact information user provides
   - **professional:** Job titles, company names, work projects, technical skills user explicitly claims
-  - **personal:** Family members, personal interests, hobbies, life events user shares
+  - **personal:** Family members, personal interests, hobbies, life events user shares (exclude productivity tools and work apps)
   - **communication:** Contact preferences, availability, communication styles user states
-  - **behavioral:** Habits, routines, work patterns user explicitly describes about themselves
-  - **psychological:** Personality traits, emotional patterns user explicitly mentions about themselves
-  - **relationships:** Named individuals and relationships user explicitly identifies
+  - **behavioral:** Habits, routines, work patterns, productivity tools usage, organization systems, payment patterns (what they spend money on) user explicitly describes about themselves
+  - **accounts:** Service accounts, platforms, subscriptions, financial services user mentions having relationships with (include meaningful attributes like paid/free, premium/basic)
+  - **relationships:** Named individuals with specific identifiers (name + email/contact info) and relationships user explicitly identifies
   - **goals:** Objectives, plans, aspirations user explicitly states about themselves
+  
+  **Examples of multi-category insights:**
+  - User mentions paid subscription → **accounts** + **behavioral** (service relationship + payment pattern)
+  - User shares work email → **professional** + **basic** (employment + contact info)
+  - User discusses family member's job → **relationships** + **professional** (person + their work)
 
   ## OUTPUT REQUIREMENTS:
 
@@ -167,6 +200,13 @@ user: |
   - ❌ "Let me help you with Python" → User knows Python (could be offering to find resources)
   - ✅ "I use Python daily for data analysis" → User uses Python for data analysis
   - ❌ Writing about technical topic → User is expert in topic
+
+  **RELATIONSHIP EXTRACTION SPECIFICITY:**
+  - ✅ "Robert Johnson <robert.johnson@company.com>" → User has relationship with Robert Johnson (robert.johnson@company.com)
+  - ❌ "Robert" → Too general, unclear which Robert
+  - ✅ "my manager Sarah Chen <s.chen@acme.com>" → User reports to Sarah Chen (s.chen@acme.com)
+  - ✅ Recipients from email headers → User communicates with these specific people
+  - ❌ Generic first names without contact details → Not useful for profile building
 
   For each insight format as:
   ```

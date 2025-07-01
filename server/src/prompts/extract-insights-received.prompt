@@ -1,5 +1,5 @@
 ---
-model: openai/o4-mini
+model: openai/gpt-4o-mini
 config:
   temperature: 0.1
 response_format:
@@ -26,6 +26,18 @@ input:
           senderDomain:
             type: string
             description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
+          to:
+            type: string
+            description: "Recipients in To field"
+          cc:
+            type: string
+            description: "Recipients in CC field"
+          replyTo:
+            type: string
+            description: "Reply-To address if different from sender"
+          threadId:
+            type: string
+            description: "Gmail thread ID for conversation context"
           emailType:
             type: string
             enum: ["inbox", "sent"]
@@ -45,9 +57,9 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, personal, communication, behavioral, psychological, relationships, goals]
-              description: "SINGLE category only - choose the most specific one"
-              maxItems: 1
+                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals]
+              description: "One or more relevant categories - insights can span multiple categories"
+              maxItems: 3
               minItems: 1
             insight:
               type: string
@@ -70,14 +82,18 @@ output:
     required: [inferences]
 ---
 user: |
-  Extract factual insights about the USER (email recipient) from this received email. Focus on what concrete facts the email reveals about the user's life, work, relationships, or circumstances.
+  Extract PROFILE-WORTHY insights about the USER (email recipient) from this received email. Focus on standalone facts that would be useful in a personal profile, not temporary email details or transaction summaries.
 
   Email Date: {{emailDate}}
   
   **EMAIL METADATA:**
   Subject: {{emailMetadata.subject}}
   From: {{emailMetadata.sender}}
+  To: {{emailMetadata.to}}
+  {{#if emailMetadata.cc}}Cc: {{emailMetadata.cc}}{{/if}}
+  {{#if emailMetadata.replyTo}}Reply-To: {{emailMetadata.replyTo}}{{/if}}
   Domain: {{emailMetadata.senderDomain}}
+  Thread ID: {{emailMetadata.threadId}}
   Type: {{emailMetadata.emailType}}
 
   **EMAIL CONTENT:**
@@ -99,14 +115,17 @@ user: |
   - Business names, organizations user is affiliated with
 
   **PEOPLE:**
-  - Names of family members, friends, colleagues
-  - Relationships (spouse, parent, manager, etc.)
-  - Anyone specifically connected to the user
+  - Names of family members, friends, colleagues with specific identifiers (include email addresses when available)
+  - Relationships (spouse, parent, manager, etc.) with full contact details
+  - Anyone specifically connected to the user (prefer full name + email over generic first names)
+  - **THREAD CONTEXT:** Same thread ID ({{emailMetadata.threadId}}) = same conversation - consider ongoing relationship context
 
   **SERVICES/ACCOUNTS:**
   - Names of services, platforms, apps user has accounts with
   - Banks, utilities, subscriptions, memberships
   - Any service provider that knows the user personally
+  - **PAYMENT IS A STRONG PROFILE SIGNAL:** If user pays for something, that's highly valuable for understanding their priorities and usage patterns
+  - Include meaningful attributes: paid vs free, premium vs basic, business vs personal
 
   **PERSONAL DETAILS:**
   - Names (full name, nicknames, preferred names)
@@ -150,31 +169,79 @@ user: |
   **50-59% confidence ("It is possible that..."):**
   - Minimum confidence - still valuable to extract
 
-  ### STEP 4: QUALITY FILTERS
-  **REJECT only if:**
+  ### STEP 4: MARKETING EMAIL RESTRICTIONS
+  **FOR PROMOTIONAL/MARKETING EMAILS - BE VERY RESTRICTIVE:**
+  
+  **✅ ONLY EXTRACT (accounts category):**
+  - User receives emails from [Company] → User has account with that service
+  - User gets service notifications → User uses that platform
+  - **PAYMENT SIGNALS ARE ESPECIALLY VALUABLE:** If email mentions payment, billing, subscription renewal - extract this as paid service relationship
+  
+  **❌ NEVER INFER FROM PROMOTIONAL CONTENT:**
+  - User interests based on what's being promoted (promotions ≠ interests)
+  - User goals based on promotional invitations (invites ≠ intentions)
+  - User preferences based on marketing offers (ads ≠ preferences)
+  - Professional activities based on receiving promotions
+  - Personal traits based on promotional targeting
+  
+  **EXAMPLE:** eBay promotion email → Extract "user has eBay account" (accounts), NOT "user interested in eBay Live events" (goals)
+
+  ### STEP 5: PROFILE-WORTHY vs TEMPORARY DETAILS
+  **✅ EXTRACT (durable, standalone profile facts):**
+  - Service relationships with meaningful attributes (paid subscriptions, premium accounts, business vs personal)
+  - **PAYMENT/BILLING RELATIONSHIPS ARE ESPECIALLY VALUABLE** - these show actual commitment and usage
+  - Living locations (apartment complexes, neighborhoods, cities)
+  - Employment details (companies, job titles, departments)
+  - Behavioral patterns (financial habits, productivity methods)
+  
+  **❌ DON'T EXTRACT (temporary, email-specific details):**
+  - "User's payment will be processed on 07/07/25" (temporary transaction)
+  - "User's subscription costs GBP 49.99" (pricing detail)
+  - "User does not need to take action" (temporary status, meaningless standalone)
+  - "User's July charges have been posted" (temporary billing update)
+  
+  **TEST:** Would this insight make sense in a profile without knowing the email context? If no, don't extract it.
+
+  ### STEP 6: FINAL QUALITY FILTERS
+  **REJECT:**
   - Obviously auto-generated random data (UUID-like strings, random word combinations)
   - Technical tracking information not related to user personally
   - Information that contradicts common sense
+  - Goals/interests inferred from promotional content
 
-  **ACCEPT information like:**
+  **ACCEPT:**
   - Real addresses, apartment names mentioned by housing services
   - Company names mentioned by employers or colleagues  
   - Personal details shared by friends/family
   - Service relationships indicated by receiving legitimate communications
 
+  **RELATIONSHIP EXTRACTION SPECIFICITY:**
+  - ✅ "From: Sarah Chen <s.chen@acme.com>" + personal tone → User has personal relationship with Sarah Chen (s.chen@acme.com)
+  - ❌ "Sarah" mentioned in email → Too general, unclear which Sarah
+  - ✅ Sender signature: "John Smith, Account Manager" → User has business relationship with John Smith
+  - ✅ Email from family member with recognizable email pattern → Family relationship with specific contact info
+  - ❌ Generic first names without context → Not useful for profile building
+
   ## CATEGORY DEFINITIONS:
+  Use 1-3 categories per insight when the insight spans multiple areas:
+  
   - **basic:** Name, age, contact information, personal identifiers
   - **professional:** Job, company, work projects, professional skills, work relationships
-  - **personal:** Family, interests, hobbies, life events, living location, personal possessions
+  - **personal:** Family, interests, hobbies, life events, living location (exclude productivity tools and work apps)
   - **communication:** Contact preferences, communication style, availability patterns
-  - **behavioral:** Habits, routines, work patterns, decision-making approaches
-  - **psychological:** Personality traits, emotional patterns, mental health aspects
-  - **relationships:** Named people and their relationship to the user
+  - **behavioral:** Habits, routines, work patterns, decision-making approaches, productivity tools usage, organization systems, payment patterns (what they spend money on)
+  - **accounts:** Service accounts, platforms, subscriptions, financial services user has relationships with (include meaningful attributes like paid/free, premium/basic)
+  - **relationships:** Named people with specific identifiers (name + email/contact info) and their relationship to the user
   - **goals:** Stated objectives, plans, aspirations, deadlines
+  
+  **Examples of multi-category insights:**
+  - Paid subscription → **accounts** + **behavioral** (service relationship + payment pattern)
+  - Housing service relationship → **personal** + **accounts** (residence + service)
+  - Work contact information → **professional** + **basic** (employment + identity)
 
   ## OUTPUT REQUIREMENTS:
 
-  Extract 0-8 insights that are informative about the user. Include insights at different confidence levels (50-100%) - don't only extract things you're certain about.
+  Extract 0-8 PROFILE-WORTHY insights that tell us about the user as a person. Focus on durable facts that would be useful in a personal profile, not temporary transaction details or email-specific information.
 
   For each insight:
   ```

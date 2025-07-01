@@ -1,5 +1,5 @@
 ---
-model: openai/o4-mini
+model: openai/gpt-4o-mini
 config:
   temperature: 0.2
 response_format:
@@ -112,18 +112,65 @@ user: |
   3. **Stronger evidence and reasoning quality**
   4. **More specific/detailed information**
 
-  ### STEP 4: CONTENT SYNTHESIS
-  **CRITICAL: DO NOT ADD INTERPRETATION OR ANALYSIS**
+  ### STEP 4: CONTENT SYNTHESIS & DEDUPLICATION
+  **CRITICAL: MERGE REDUNDANT INSIGHTS AND PRIORITIZE**
   
-  Write minimal, factual statements that:
-  - State ONLY what is explicitly mentioned in the insights
-  - Use the EXACT confidence language from insights (verbatim)
-  - Include temporal context from insights (as of dates)
-  - Never add implications, analysis, or inferred meaning
-  - Never expand on "why" something matters or its significance
-  - Combine similar facts but do not elaborate beyond what's stated
+  Write consolidated, factual statements that:
+  - **MERGE similar insights** into comprehensive statements (e.g., multiple MyEquity insights → one consolidated MyEquity relationship)
+  - **DEDUPLICATE redundant information** (don't repeat the same service multiple times)
+  - **PRIORITIZE by importance** (paid services > free accounts, primary services > secondary mentions)
+  - Use the HIGHEST confidence language when merging similar insights
+  - Include temporal context from most recent insight
+  - Never add implications, analysis, or inferred meaning beyond stated facts
+  
+  **EXAMPLES OF GOOD CONSOLIDATION:**
+  - Multiple insights about same service → One comprehensive insight about that service relationship
+  - Basic + premium tiers → Mention the higher tier
+  - Account + payment info → Combined service relationship with payment detail
   
   **FORBIDDEN**: Adding context about workflow benefits, productivity implications, strategic value, or any analysis beyond the bare facts.
+
+  <context>
+  ## PROFILE SYSTEM OVERVIEW
+  
+  The user's profile is organized into 8 distinct sections. You are updating ONLY the "{{category}}" section, but here's how all sections work together:
+  
+  **basic**: Core identity (name, age, contact info, credentials)
+  **professional**: Work life (job, company, projects, skills, achievements)  
+  **personal**: Life outside work (family, hobbies, interests, housing, events)
+  **communication**: How they interact (contact preferences, style, availability)
+  **behavioral**: Patterns and habits (routines, payment patterns, productivity methods) - payment signals show actual commitment
+  **accounts**: Service relationships with meaningful attributes (paid subscriptions, premium accounts, platforms, financial services)
+  **relationships**: Specific people (family members, colleagues, friends by name)
+  **goals**: Future objectives (career plans, personal aspirations, deadlines)
+  
+  ## EXISTING SECTIONS FOR REFERENCE
+  
+  Here are the current contents of the OTHER sections (for context only - do NOT edit these):
+  
+  **BASIC**: {{#if userInfo.basic}}{{userInfo.basic}}{{else}}No basic information available{{/if}}
+  
+  **PROFESSIONAL**: {{#if userInfo.professional}}{{userInfo.professional}}{{else}}No professional information available{{/if}}
+  
+  **PERSONAL**: {{#if userInfo.personal}}{{userInfo.personal}}{{else}}No personal information available{{/if}}
+  
+  **COMMUNICATION**: {{#if userInfo.communication}}{{userInfo.communication}}{{else}}No communication information available{{/if}}
+  
+  **BEHAVIORAL**: {{#if userInfo.behavioral}}{{userInfo.behavioral}}{{else}}No behavioral information available{{/if}}
+  
+  **ACCOUNTS**: {{#if userInfo.accounts}}{{userInfo.accounts}}{{else}}No accounts information available{{/if}}
+  
+  **RELATIONSHIPS**: {{#if userInfo.relationships}}{{userInfo.relationships}}{{else}}No relationship information available{{/if}}
+  
+  **GOALS**: {{#if userInfo.goals}}{{userInfo.goals}}{{else}}No goals information available{{/if}}
+  
+  ## YOUR TASK
+  
+  Update ONLY the "{{category}}" section. Use the context above to:
+  - Avoid duplicating information already covered in other sections
+  - Ensure your content fits the {{category}} category specifically
+  - Maintain consistency with the existing profile tone and style
+  </context>
 
   ## CATEGORY-SPECIFIC FOCUS FOR {{category}}:
   
@@ -224,31 +271,30 @@ user: |
   • Meeting or collaboration behavior
   • Follow-up or accountability practices
   • Risk tolerance or approach to challenges
+  • Financial habits and payment patterns (rent, bills, subscriptions) - PAYMENT SIGNALS ARE ESPECIALLY VALUABLE
+  • Shopping or purchasing behaviors - what they spend money on reveals priorities
+  • Health and wellness routines
 
-  EXCLUDE: Emotional patterns, communication habits, personal routines, personality traits
+  EXCLUDE: Emotional patterns, communication habits, personality traits
   WRITING STYLE: Group work-related behaviors first, then general productivity habits.
   {{/if}}
   
-  {{#if isPsychological}}
-  **PSYCHOLOGICAL PATTERNS FOCUS:**
-  Include ONLY explicitly mentioned psychological aspects:
-  • Personality traits directly stated
-  • Emotional patterns, responses, tendencies
-  • Stress responses, triggers, coping mechanisms
-  • Mental health aspects, conditions, treatments
-  • Motivational factors or drivers
-  • Fears, anxieties, concerns
-  • Confidence levels or self-perception
-  • Learning disabilities or cognitive considerations
-  • Emotional intelligence aspects
-  • Conflict resolution style
-  • Leadership style (psychological aspects)
-  • Resilience, adaptability, response to change
-  • Social comfort levels or introversion/extroversion
-  • Values or beliefs affecting psychological well-being
+  {{#if isAccounts}}
+  **ACCOUNTS & SERVICES FOCUS:**
+  Include ONLY confirmed service relationships and accounts:
+  • Financial services (banks, credit cards, investment platforms)
+  • Cloud storage and productivity tools (Dropbox, Google Drive, Slack)
+  • Subscription services (streaming, software, news)
+  • Professional platforms (LinkedIn, industry tools)
+  • Utility providers (internet, power, phone)
+  • Shopping platforms (Amazon, grocery delivery)
+  • Housing services (property management, rental platforms)
+  • Healthcare services (insurance, providers)
+  • Educational platforms (courses, certifications)
+  • Government services (tax, benefits, licensing)
 
-  EXCLUDE: Behavioral habits, communication styles, professional skills, inferred traits
-  WRITING STYLE: Handle sensitively, use exact language from insights, group positive traits first.
+  EXCLUDE: Casual usage without confirmed accounts, assumptions about services
+  WRITING STYLE: List confirmed accounts and active service relationships factually.
   {{/if}}
   
   {{#if isRelationships}}
@@ -294,14 +340,14 @@ user: |
 
   ## OUTPUT REQUIREMENTS:
 
-  1. **Quality-first approach:** Only include well-reasoned, confident insights
-  2. **Preserve confidence language:** Use exact language from insights ("It is certain that...", "It appears that...", etc.)
-  3. **Temporal awareness:** Include "as of [date]" when relevant for aging context
+  1. **Consolidation-first approach:** Merge similar insights, eliminate redundancy, prioritize by importance
+  2. **Preserve highest confidence:** When merging insights, use the highest confidence language available
+  3. **Temporal awareness:** Include "as of [date]" using the most recent date when merging
   4. **Category purity:** Absolutely no content outside {{category}} scope
-  5. **Minimal prose:** Write concise sentences stating facts only, not bullet points
+  5. **Prioritized organization:** Most important/paid services first, secondary mentions after
   6. **Professional tone:** Maintain factual, professional language
   7. **Uncertainty acknowledgment:** If low confidence, acknowledge appropriately
-  8. **Conciseness:** State facts directly, avoid elaboration. Keep under 300 words.
+  8. **Conciseness:** Consolidate effectively, avoid repetition. Keep under 300 words.
 
   **If no valid {{category}} insights exist after quality filtering:** 
   Return: "No verified {{category}} information available at this time."

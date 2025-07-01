@@ -110,17 +110,24 @@ export class AIService {
       const headers = emailObj.payload?.headers || [];
       const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
       const sender = headers.find((h: any) => h.name === 'From')?.value || '';
+      const to = headers.find((h: any) => h.name === 'To')?.value || '';
+      const cc = headers.find((h: any) => h.name === 'Cc')?.value || '';
+      const replyTo = headers.find((h: any) => h.name === 'Reply-To')?.value || '';
       
       // Extract sender domain
       const senderEmailMatch = sender.match(/<([^>]+)>/) || sender.match(/([^\s]+@[^\s]+)/);
       const senderEmail = senderEmailMatch ? senderEmailMatch[1] || senderEmailMatch[0] : sender;
       const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1] : 'unknown';
 
-      // Simplified metadata - let the prompts handle classification during source analysis
+      // Enhanced metadata including recipients and thread info
       const emailMetadata = {
         subject,
         sender,
         senderDomain,
+        to,
+        cc,
+        replyTo,
+        threadId: emailObj.threadId,
         emailType: emailObj.emailType || 'inbox'
       };
 
@@ -182,7 +189,7 @@ export class AIService {
         isPersonal: category === 'personal',
         isCommunication: category === 'communication',
         isBehavioral: category === 'behavioral',
-        isPsychological: category === 'psychological',
+        isAccounts: category === 'accounts',
         isRelationships: category === 'relationships',
         isGoals: category === 'goals'
       };
