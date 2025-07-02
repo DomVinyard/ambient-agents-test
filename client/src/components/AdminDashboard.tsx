@@ -19,11 +19,11 @@ import { Email, Insight } from '../types';
 import { storageService } from '../services/storage.service';
 import axios from 'axios';
 
-interface DashboardProps {
+interface AdminDashboardProps {
   onLogout: () => void;
 }
 
-export default function Dashboard({ onLogout }: DashboardProps) {
+export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);

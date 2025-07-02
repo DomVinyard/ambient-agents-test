@@ -1,0 +1,148 @@
+.beautiful-markdown-editor .ProseMirror {
+  outline: none !important;
+  min-height: 100% !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+  color: #2d3748 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  overflow-y: auto !important;
+  max-width: none !important;
+}
+
+.beautiful-markdown-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+.beautiful-markdown-editor .ProseMirror h1 {
+  font-size: 2em !important;
+  font-weight: 700 !important;
+  margin-bottom: 0.5em !important;
+  margin-top: 1em !important;
+  line-height: 1.2 !important;
+  color: #1a202c !important;
+}
+
+.beautiful-markdown-editor .ProseMirror h2 {
+  font-size: 1.5em !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.5em !important;
+  margin-top: 1em !important;
+  line-height: 1.3 !important;
+  color: #2d3748 !important;
+}
+
+.beautiful-markdown-editor .ProseMirror h3 {
+  font-size: 1.25em !important;
+  font-weight: 600 !important;
+  margin-bottom: 0.5em !important;
+  margin-top: 1em !important;
+  line-height: 1.4 !important;
+  color: #4a5568 !important;
+}
+
+.beautiful-markdown-editor .ProseMirror ul,
+.beautiful-markdown-editor .ProseMirror ol {
+  padding-left: 1.5em !important;
+  margin-bottom: 1em !important;
+  margin-top: 1em !important;
+}
+
+.beautiful-markdown-editor .ProseMirror ul {
+  list-style-type: disc !important;
+}
+
+.beautiful-markdown-editor .ProseMirror ol {
+  list-style-type: decimal !important;
+}
+
+.beautiful-markdown-editor .ProseMirror li {
+  margin-bottom: 0.25em !important;
+  display: list-item !important;
+}
+
+.beautiful-markdown-editor .ProseMirror blockquote {
+  border-left: 4px solid #e2e8f0;
+  padding-left: 1em;
+  margin-left: 0;
+  margin-bottom: 1em;
+  font-style: italic;
+  color: #4a5568;
+  background-color: #f8fafc;
+  padding: 1em;
+  border-radius: 0 8px 8px 0;
+}
+
+.beautiful-markdown-editor .ProseMirror strong {
+  font-weight: 700 !important;
+}
+
+.beautiful-markdown-editor .ProseMirror em {
+  font-style: italic !important;
+}
+
+.beautiful-markdown-editor .ProseMirror p {
+  margin-bottom: 1em !important;
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+.beautiful-markdown-editor .ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+.beautiful-markdown-editor .ProseMirror code {
+  background-color: #f1f5f9;
+  color: #e53e3e;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'SF Mono', Monaco, 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  font-size: 0.9em;
+}
+
+.beautiful-markdown-editor .ProseMirror pre {
+  background-color: #1a202c;
+  color: #e2e8f0;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+
+.beautiful-markdown-editor .ProseMirror pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* Focus styles */
+.beautiful-markdown-editor .ProseMirror:focus {
+  outline: none;
+}
+
+/* Selection styles */
+.beautiful-markdown-editor .ProseMirror ::selection {
+  background-color: #bee3f8;
+}
+
+/* Bubble menu styles */
+.tippy-box[data-theme~='bubble-menu'] {
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 0;
+}
+
+.tippy-box[data-theme~='bubble-menu'] .tippy-arrow {
+  color: white;
+}
+
+.tippy-box[data-theme~='bubble-menu'] .tippy-arrow:before {
+  border-top-color: #e2e8f0;
+} 

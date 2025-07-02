@@ -1,4 +1,4 @@
-import { generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { Dotprompt } from 'dotprompt';
@@ -354,6 +354,45 @@ export class AIService {
     } catch (error) {
       console.error('Error in AI analyzeAutomation:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Generate friendly status messages from insights for real-time user feedback
+   */
+  async generateStatusMessage({
+    insights,
+    userInfo
+  }: {
+    insights: any[];
+    userInfo: any;
+  }): Promise<string> {
+    try {
+      if (insights.length === 0) {
+        return "Reading through your emails...";
+      }
+
+      const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Load and render the generate-status prompt
+      const { modelName, promptText, schema, config } = await this.loadPromptFile('generate-status', {
+        insights,
+        userInfo,
+        todaysDate
+      });
+
+      const result = await generateObject({
+        model: openai(modelName),
+        schema,
+        prompt: promptText,
+        ...config
+      });
+
+      return result.object.message.trim();
+
+    } catch (error) {
+      console.error('Error generating status message:', error);
+      return "Discovering interesting things about you...";
     }
   }
 

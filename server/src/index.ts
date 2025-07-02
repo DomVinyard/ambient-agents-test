@@ -47,8 +47,9 @@ app.get('/health', (req, res) => {
 
 // Gmail OAuth flow
 app.get('/auth/gmail', (req, res) => {
-  console.log('Starting Gmail OAuth flow');
-  const url = gmailService.generateAuthUrl();
+  const mode = req.query.mode as string || 'user';
+  console.log(`Starting Gmail OAuth flow for mode: ${mode}`);
+  const url = gmailService.generateAuthUrl(mode);
   res.redirect(url);
 });
 
@@ -56,18 +57,35 @@ app.get('/auth/gmail', (req, res) => {
 app.get('/auth/gmail/callback', async (req, res) => {
   console.log('Received OAuth callback');
   const code = req.query.code as string;
+  const state = req.query.state as string;
+  
   if (!code) {
     console.error('OAuth callback missing code parameter');
     return res.status(400).send('Missing code');
   }
+  
+  // Extract mode from state parameter
+  const mode = state || 'user';
+  
   try {
     const { tokens } = await gmailService.getToken(code);
-    console.log('Successfully obtained Gmail tokens');
+    console.log(`Successfully obtained Gmail tokens for mode: ${mode}`);
     const tokensParam = encodeURIComponent(JSON.stringify(tokens));
-    res.redirect(`http://localhost:3000/?gmail=success&tokens=${tokensParam}`);
+    
+    // Redirect based on mode
+    if (mode === 'admin') {
+      res.redirect(`http://localhost:3000/admin?gmail=success&tokens=${tokensParam}&mode=${mode}`);
+    } else {
+      res.redirect(`http://localhost:3000/?gmail=success&tokens=${tokensParam}&mode=${mode}`);
+    }
   } catch (err) {
     console.error('Error in OAuth callback:', err);
-    res.redirect('http://localhost:3000/?gmail=error');
+    // Redirect to appropriate error page based on mode
+    if (mode === 'admin') {
+      res.redirect('http://localhost:3000/admin?gmail=error');
+    } else {
+      res.redirect('http://localhost:3000/?gmail=error');
+    }
   }
 });
 
@@ -337,6 +355,28 @@ app.post('/api/ai/analyze-automation', async (req, res) => {
       error: err instanceof Error ? err.message : 'Unknown error'
     });
     res.status(500).json({ error: 'Failed to analyze automation opportunities', details: err instanceof Error ? err.message : err });
+  }
+});
+
+// Generate friendly status message from insights (new endpoint)
+app.post('/api/ai/generate-status', async (req, res) => {
+  const { insights, userInfo } = req.body;
+
+  if (!insights || !userInfo) {
+    return res.status(400).json({ error: 'Missing insights or userInfo' });
+  }
+
+  try {
+    const statusMessage = await aiService.generateStatusMessage({
+      insights,
+      userInfo
+    });
+    
+    res.json({ message: statusMessage });
+
+  } catch (err) {
+    console.error('Error generating status message:', err);
+    res.status(500).json({ error: 'Failed to generate status message', details: err instanceof Error ? err.message : err });
   }
 });
 

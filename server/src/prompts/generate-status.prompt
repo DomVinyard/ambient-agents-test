@@ -1,0 +1,121 @@
+---
+model: openai/gpt-4o-mini
+config:
+  temperature: 0.6
+  maxTokens: 100
+response_format:
+  type: json_object
+output:
+  schema:
+    type: object
+    properties:
+      message:
+        type: string
+        description: "Short, direct status message about the user's identity"
+    required: [message]
+input:
+  schema:
+    type: object
+    properties:
+      insights:
+        type: array
+        items:
+          type: object
+          properties:
+            insight:
+              type: string
+              description: "The factual insight discovered about the user"
+            confidence:
+              type: number
+              description: "Confidence score between 0 and 1"
+            categories:
+              type: array
+              items:
+                type: string
+              description: "Categories this insight belongs to"
+            extractedOn:
+              type: string
+              description: "Date of the email this insight came from (YYYY-MM-DD)"
+          required: [insight, confidence, categories]
+        description: "Batch of insights to analyze and select the best one from"
+      userInfo:
+        type: object
+        properties:
+          firstName: 
+            type: string
+          lastName: 
+            type: string
+          email: 
+            type: string
+        required: [firstName, lastName, email]
+        description: "Basic user information for context"
+      todaysDate:
+        type: string
+        description: "Today's date in YYYY-MM-DD format for temporal context"
+    required: [insights, userInfo, todaysDate]
+---
+user: |
+  You are analyzing a BATCH of insights about {{userInfo.firstName}} to find the most PROFILE-WORTHY discovery.
+
+  **Today's Date:** {{todaysDate}}
+
+  **Insights to analyze (pick the BEST ONE):**
+  {{#each insights}}
+  {{@index}}. {{insight}} (confidence: {{confidence}}, from: {{extractedOn}}, categories: {{categories}})
+  {{/each}}
+
+  ## YOUR TASK: Compare ALL insights above and select the BEST one
+
+  ## PROFILE-FOCUSED SELECTION:
+
+  **PRIORITIZE insights that reveal WHO {{userInfo.firstName}} IS:**
+  ✅ **Identity/Role:** Job title, profession, company ("You're a developer", "You work at Google")
+  ✅ **Location/Base:** Where they live/work ("You're based in London", "You live in Seattle") 
+  ✅ **Lifestyle/Interests:** Hobbies, passions, habits ("You're into fitness", "You travel frequently")
+  ✅ **Personal Characteristics:** Family, life stage, behaviors ("You have kids", "You're health-conscious")
+  ✅ **Professional Identity:** Skills, expertise, industry ("You're in tech", "You do design")
+
+  **SKIP these types:**
+  ❌ **Service accounts** ("You have Netflix", "You use Gmail") - not identity-revealing
+  ❌ **Temporary activities** ("You're looking at cars", "You got mail") - not profile-worthy
+  ❌ **Payment details** ("Your card expires", "You pay $50") - not about who they are
+
+  ## OUTPUT FORMAT:
+  Generate a SHORT, direct message (3-8 words) that states something meaningful about WHO they are:
+
+  **Good examples:**
+  - "Ah, ok, you're a [occupation]"
+  - "Cool, you live in [location]" 
+  - "Interesting, I see you're really into [topic]"
+  - "It seems you have [subject]"
+  - "Great, you're [Characteristic]"
+  - "OK, you probably work in [industry]"
+  - "You previously [previous fact]"
+  - "You once drove a [car make]"
+
+  **Bad examples:**
+  - "Ah Cool, you have a Royal Mail account"
+  - "I see you're tracking flight prices"
+  - "You got an email from GitHub"
+
+  ## TEMPORAL PRIORITIZATION:
+  When multiple insights are available, prefer:
+  - **Perpetual facts** things that are true for a long time
+  - **Recent insights** (within 3 months) over older ones
+  - **High confidence + recent** over high confidence + old
+  - **Current information** over potentially outdated facts
+
+  ## SELECTION PROCESS:
+  1. **Compare** all insights above
+  2. **Rank** by identity-revealing value (WHO they are, not WHAT they use)
+  3. **Prefer** high confidence + recent + specific
+  4. **Select** the most profile-worthy insight
+  5. **Generate** a short status message about that insight
+
+  Pick the most IDENTITY-REVEALING insight and return a status message as JSON:
+
+  ```json
+  {
+    "message": "You're a software engineer"
+  }
+  ``` 

@@ -18,7 +18,7 @@ export default function Toolbar({ onLogout, onDeleteAllData }: ToolbarProps) {
       <Flex justify="space-between" align="center">
         <Flex align="center" gap={4}>
           <Heading size="md" color="gray.800">
-          Sauna Profile Builder
+          Sauna Onboard
           </Heading>
         </Flex>
         

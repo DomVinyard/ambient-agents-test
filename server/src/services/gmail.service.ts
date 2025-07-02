@@ -31,7 +31,7 @@ export class GmailService {
     this.oauth2Client = new google.auth.OAuth2(this.CLIENT_ID, this.CLIENT_SECRET, this.REDIRECT_URI);
   }
 
-  generateAuthUrl(): string {
+  generateAuthUrl(mode: string = 'user'): string {
     const scopes = [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/userinfo.email',
@@ -42,6 +42,7 @@ export class GmailService {
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent',
+      state: mode, // Pass mode as state parameter
     });
   }
 
