@@ -137,40 +137,40 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
     // Gmail service already limits the emails based on EMAIL_FETCH_LIMIT
     const recentEmails = emails;
     
-         // Format emails for the frontend
-     const formattedEmails = recentEmails.map(emailObj => {
-       const headers = emailObj.payload?.headers || [];
-       const internalDate = emailObj.internalDate ? parseInt(emailObj.internalDate) : Date.now();
-       return {
-         id: emailObj.id,
-         subject: headers.find((h: any) => h.name === 'Subject')?.value || 'No subject',
-         from: headers.find((h: any) => h.name === 'From')?.value || '',
-         to: headers.find((h: any) => h.name === 'To')?.value || '',
-         cc: headers.find((h: any) => h.name === 'Cc')?.value || '',
-         date: new Date(internalDate).toISOString(),
-         internalDate: internalDate,
-         snippet: emailObj.snippet || '',
-         fullBody: emailObj.fullBody || '',
-         threadId: emailObj.threadId,
-         labelIds: emailObj.labelIds || [],
-         emailType: emailObj.emailType || 'unknown'
-       };
-     });
+    // Format emails for the frontend without classification (classification moved to extract-insights stage)
+    console.log(`📧 Formatting ${recentEmails.length} emails for frontend...`);
+    const formattedEmails = recentEmails.map((emailObj) => {
+      const headers = emailObj.payload?.headers || [];
+      const internalDate = emailObj.internalDate ? parseInt(emailObj.internalDate) : Date.now();
+      
+      return {
+        id: emailObj.id,
+        subject: headers.find((h: any) => h.name === 'Subject')?.value || 'No subject',
+        from: headers.find((h: any) => h.name === 'From')?.value || '',
+        to: headers.find((h: any) => h.name === 'To')?.value || '',
+        cc: headers.find((h: any) => h.name === 'Cc')?.value || '',
+        date: new Date(internalDate).toISOString(),
+        snippet: emailObj.snippet || '',
+        fullBody: emailObj.fullBody || '',
+        threadId: emailObj.threadId,
+        labelIds: emailObj.labelIds || [],
+        emailType: emailObj.emailType || 'unknown'
+        // No classification field - will be added during extract-insights
+      };
+    });
+    
+    console.log(`✅ Formatted ${formattedEmails.length} emails (classification will happen during insight extraction)`);
 
      // Deduplicate by thread - keep only the most recent email from each thread
      const threadMap = new Map();
      formattedEmails.forEach(email => {
        const existing = threadMap.get(email.threadId);
-       if (!existing || email.internalDate > existing.internalDate) {
+       if (!existing || new Date(email.date).getTime() > new Date(existing.date).getTime()) {
          threadMap.set(email.threadId, email);
        }
      });
      
-     const deduplicatedEmails = Array.from(threadMap.values()).map(email => {
-       // Remove internalDate from final output as it's only needed for sorting
-       const { internalDate, ...emailWithoutInternalDate } = email;
-       return emailWithoutInternalDate;
-     });
+     const deduplicatedEmails = Array.from(threadMap.values());
 
          const inboxCount = deduplicatedEmails.filter(e => e.emailType === 'inbox').length;
      const sentEmailCount = deduplicatedEmails.filter(e => e.emailType === 'sent').length;
@@ -197,7 +197,7 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
 
 // Extract insights from a single email (step 2)
 app.post('/api/gmail/extract-insights', async (req, res) => {
-  const { tokens, emailId, emailData } = req.body;
+  const { tokens, emailId, emailData, userInfo } = req.body;
   const sessionId = getSessionId(req);
   console.log(`Extracting insights for email ${emailId}, session: ${sessionId}`);
 
@@ -217,6 +217,7 @@ app.post('/api/gmail/extract-insights', async (req, res) => {
       labelIds: emailData.labelIds || [],
       emailType: emailData.emailType || 'unknown', // Ensure emailType is passed through
       threadId: emailData.threadId,
+      classification: emailData.classification, // Pass through classification for proper prompt routing
       payload: {
         headers: [
           { name: 'Subject', value: emailData.subject },
@@ -228,16 +229,17 @@ app.post('/api/gmail/extract-insights', async (req, res) => {
       }
     };
 
-    // Use placeholder for AI processing (actual user email not needed for insight extraction)
-    const aiResult = await aiService.processMessage(targetEmail, 'user');
+    // Use the combined classification + extraction method
+    const result = await aiService.extractInsightsWithClassification(targetEmail, userInfo);
     
     await pusherService.trigger(`${sessionId}`, 'insights-complete', {
       emailId,
-      insightsCount: aiResult.inferences?.length || 0
+      insightsCount: result.insights?.length || 0
     });
     
     res.json({ 
-      insights: aiResult.inferences || [],
+      insights: result.insights || [],
+      classification: result.classification || null,
       emailId 
     });
 

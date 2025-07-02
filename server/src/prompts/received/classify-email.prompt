@@ -52,18 +52,13 @@ output:
         description: "Brief explanation for the classification decision"
     required: [emailType, confidence, reasoning]
 ---
-system: |
-  You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
+{{role "system"}}
+You are an expert email classifier who categorizes emails to help determine the best extraction approach for profile building.
 
-  ## EMAIL DIRECTION UNDERSTANDING:
-  - **SENDER**: The person/organization who WROTE and SENT this email
-  - **RECIPIENT/USER**: The person who RECEIVED this email (the user we're building a profile for)
-  - **EMAIL FLOW**: SENDER → EMAIL → RECIPIENT/USER
+{{role "user"}}
+I need you to classify this email that {{userInfo.firstName}} {{userInfo.lastName}} received to determine the best extraction approach.
 
-  CRITICAL: This email was SENT TO the user, not SENT BY the user. You are classifying an email that someone else sent to the user.
-
-user: |
-  Classify this received email into one of four categories to determine the appropriate extraction approach.
+{{>email-direction-understanding}}
 
   **Today's Date:** {{todaysDate}}
   **Email Date:** {{emailDate}}

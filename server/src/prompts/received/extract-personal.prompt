@@ -27,7 +27,17 @@ input:
           to:
             type: string
         required: [subject, sender, senderDomain]
-    required: [emailContent, emailDate, todaysDate, emailMetadata]
+      userInfo:
+        type: object
+        properties:
+          firstName:
+            type: string
+          lastName:
+            type: string
+          email:
+            type: string
+        required: [firstName, lastName, email]
+    required: [emailContent, emailDate, todaysDate, emailMetadata, userInfo]
 output:
   schema:
     type: object
@@ -62,13 +72,7 @@ output:
 system: |
   You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
 
-  ## EMAIL DIRECTION UNDERSTANDING:
-  - **SENDER**: The person who WROTE and SENT this email TO the user
-  - **RECIPIENT/USER**: The person who RECEIVED this email (the user we're building a profile for)
-  - **EMAIL FLOW**: SENDER → EMAIL → RECIPIENT/USER
-
-  ## CRITICAL INSIGHT DIRECTION:
-  You are extracting insights ABOUT THE USER (recipient) based on what the SENDER reveals about them.
+  {{>email-direction-understanding}}
 
   ## EXAMPLES OF CORRECT ANALYSIS:
 
@@ -93,6 +97,10 @@ system: |
 user: |
   Extract personal insights ABOUT THE USER from this personal email that was SENT TO them.
 
+  **USER IDENTITY:**
+  Name: {{userInfo.firstName}} {{userInfo.lastName}}
+  Email: {{userInfo.email}}
+
   **Today's Date:** {{todaysDate}}
   **Email Date:** {{emailDate}}
   **From:** {{emailMetadata.sender}}
@@ -102,10 +110,50 @@ user: |
   **Email Content:**
   {{emailContent}}
 
-  ## TEMPORAL CONTEXT:
-  Consider email age for relationship and personal information relevance:
-  - **Recent (within 6 months):** Current relationship and information
-  - **Older (6+ months):** Past relationship state, may have changed
+    ## CRITICAL USER IDENTIFICATION:
+  The USER is {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}) who RECEIVED this email.
+
+  ## YOUR MISSION: Personal Profile Builder
+  
+  **Think like this:** "What does this personal email reveal about {{userInfo.firstName}}'s relationships, life events, interests, and personal situation?"
+  
+  Focus on building a useful profile that helps understand their personal life and connections.
+  
+  {{>user-identity-awareness userInfo=userInfo}}
+
+  **Thread Analysis Rules:**
+  - The sender wrote TO the user, not as the user
+  - Look for quoted messages to identify who wrote what in email threads
+  - Focus on what the SENDER reveals about the USER, not about themselves
+
+  {{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
+  
+  **Personal Thread Context:**
+  - **Family Conversations:** Multi-message exchanges with family members revealing user's life
+  - **Social Planning:** Back-and-forth coordination of personal events, travel, meetups
+  - **Life Update Threads:** Ongoing conversations where others ask about/comment on user's life
+  - **Support Conversations:** Personal threads where friends/family offer support or advice
+  - **Shared Experience Planning:** Coordinating shared activities, trips, or life events
+  
+  **Thread-Based Personal Insights:**
+  - **Relationship Depth:** How personal communication evolves across multiple exchanges
+  - **Life Event Planning:** User's involvement in planning personal events through thread coordination
+  - **Social Circle Dynamics:** User's role in friend/family group as shown through group threads
+  - **Personal Circumstance Changes:** How user's life situation evolves across thread timeline
+  - **Social Patterns:** User's availability, preferences, habits as referenced by others over time
+  
+  **Personal Relationship Development:**
+  - **New Personal Connections:** How user forms new personal relationships through introductions
+  - **Deepening Relationships:** How personal relationships become closer over thread timeline
+  - **Life Event Participation:** User's involvement in others' life events (weddings, birthdays, etc.)
+  - **Geographic Connections:** How location-based relationships develop through ongoing communication
+  
+  **Thread Consistency Validation:**
+  - **Life Detail Consistency:** Do multiple people reference same details about user's life?
+  - **Relationship Validation:** Are user's relationships confirmed by multiple thread participants?
+  - **Timeline Verification:** Do personal events referenced align across different threads?
+
+  {{>temporal-context emailDate=emailDate}}
 
   ## PERSONAL EMAIL EXTRACTION:
 
@@ -134,9 +182,9 @@ user: |
   **Familiar tone** = "User has personal relationship with [Name] <email> (email from {{emailDate}})"
   **Family context** = "User has family relationship with [Name] <email> (email from {{emailDate}})"
 
-  ## CRITICAL:
-  - Always include full email address: "Name <email@domain.com>"
-  - Include temporal context: "(email from {{emailDate}})"
+  {{>relationship-extraction-rules emailDate=emailDate}}
+  
+  ## PERSONAL-SPECIFIC GUIDELINES:
   - Don't overstate relationship closeness
   - Focus on what sender says ABOUT the user
   - Distinguish between casual acquaintance vs close relationship

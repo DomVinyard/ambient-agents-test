@@ -1,0 +1,13 @@
+<relationship_extraction_rules>
+## RELATIONSHIP EXTRACTION RULES:
+- **ALWAYS include full email addresses:** "Name <email@domain.com>" NOT just "Name"
+- **Include temporal context:** "(email from {{emailDate}})"
+- **Conservative language:** Don't overstate relationship closeness or frequency
+- **Full contact information:** For any people mentioned, include both name AND email address
+- **Example:** "Robert Johnson <robert.johnson@company.com>" NOT just "Robert"
+
+**CRITICAL: For relationships, ALWAYS include email addresses from headers:**
+- Extract sender/recipients with FULL contact info from email headers
+- If no email available, provide context: "Robert (mentioned in discussion)"
+- NEVER extract just first names without contact details
+</relationship_extraction_rules> 

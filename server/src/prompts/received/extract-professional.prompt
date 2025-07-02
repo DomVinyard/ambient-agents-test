@@ -27,7 +27,17 @@ input:
           to:
             type: string
         required: [subject, sender, senderDomain]
-    required: [emailContent, emailDate, todaysDate, emailMetadata]
+      userInfo:
+        type: object
+        properties:
+          firstName:
+            type: string
+          lastName:
+            type: string
+          email:
+            type: string
+        required: [firstName, lastName, email]
+    required: [emailContent, emailDate, todaysDate, emailMetadata, userInfo]
 output:
   schema:
     type: object
@@ -61,14 +71,9 @@ output:
 ---
 system: |
   You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
+  Identify where thread boundaries are and ensure you don't mistake who is writing what. 
 
-  ## EMAIL DIRECTION UNDERSTANDING:
-  - **SENDER**: The person/organization who WROTE and SENT this email TO the user
-  - **RECIPIENT/USER**: The person who RECEIVED this email (the user we're building a profile for)  
-  - **EMAIL FLOW**: SENDER → EMAIL → RECIPIENT/USER
-
-  ## CRITICAL INSIGHT DIRECTION:
-  You are extracting insights ABOUT THE USER (recipient) based on what the SENDER reveals about them.
+  {{>email-direction-understanding}}
 
   ## EXAMPLES OF CORRECT ANALYSIS:
   
@@ -93,6 +98,10 @@ system: |
 user: |
   Extract professional insights ABOUT THE USER from this work-related email that was SENT TO them.
 
+  **USER IDENTITY:**
+  Name: {{userInfo.firstName}} {{userInfo.lastName}}
+  Email: {{userInfo.email}}
+
   **Today's Date:** {{todaysDate}}
   **Email Date:** {{emailDate}}
   **From:** {{emailMetadata.sender}}
@@ -102,10 +111,51 @@ user: |
   **Email Content:**
   {{emailContent}}
 
-  ## TEMPORAL CONTEXT:
-  Consider email age for professional information relevance:
-  - **Recent (within 1 year):** Likely current work situation
-  - **Older (1+ years):** May indicate past role/company, lower confidence
+  ## CRITICAL USER IDENTIFICATION:
+  The USER is {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}). 
+  
+  ## YOUR MISSION: Professional Profile Builder
+  
+  **Think like this:** "What does this work email reveal about {{userInfo.firstName}}'s professional role, responsibilities, relationships, and business context?"
+  
+  Focus on building a useful profile that helps understand their professional life and work connections.
+  
+  {{>user-identity-awareness userInfo=userInfo}}
+  
+  **Thread Analysis Rules:**
+  - Look for quoted messages and email signatures to identify who wrote what
+  - Messages "From: {{userInfo.email}}" were written BY the user
+  - Messages "From: [other email]" were written TO the user
+  - Don't extract insights about other people's jobs/roles as if they were the user's
+
+  {{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
+  
+  **Professional Thread Context:**
+  - **Project Threads:** Multi-message discussions about work projects involving the user
+  - **Meeting Coordination:** Back-and-forth scheduling revealing user's role and availability
+  - **Decision Threads:** Work decisions where user's input/authority is referenced by others
+  - **Status Reports:** Regular updates where others report to or update the user on work matters
+  - **Problem Resolution:** Support threads where user's expertise or authority is referenced
+  
+  **Thread-Based Professional Insights:**
+  - **Role Evolution:** How others' references to user's role develop across multiple exchanges
+  - **Authority Patterns:** Consistent patterns of others seeking user's approval/input
+  - **Expertise Recognition:** Multiple colleagues referencing user's skills across thread
+  - **Team Dynamics:** User's position in team hierarchy as revealed through thread interactions
+  - **Project Ownership:** User's responsibility level shown through multi-message coordination
+  
+  **Professional Relationship Building:**
+  - **New Contact Introductions:** Professional introductions where user gains new contacts
+  - **Ongoing Business Relationships:** How professional relationships develop over thread timeline
+  - **Client/Vendor Patterns:** Repeated interactions showing business relationship nature
+  - **Internal Team Communications:** Patterns showing user's role within organization
+  
+  **Example Thread Interpretation:**
+  If email shows:
+  "From: colleague@company.com" → This person works at company.com, NOT the user
+  "From: {{userInfo.email}}" → This shows user's own messages in the thread
+
+  {{>temporal-context emailDate=emailDate}}
 
   ## PROFESSIONAL EMAIL EXTRACTION:
 
@@ -113,7 +163,7 @@ user: |
   - Extract sender as business contact with full email (email from {{emailDate}})
   - Colleagues, managers, direct reports mentioned
   - Client/vendor relationships
-  - **CONSERVATIVE:** "User has business relationship with [Name] <email> (email from {{emailDate}})"
+  - **CONSERVATIVE:** "User has business contact with [Name] <email> (email from {{emailDate}})"
 
   **Professional Context (professional):**
   - Company names where user works (mentioned by colleagues) (email from {{emailDate}})
@@ -131,10 +181,11 @@ user: |
   - Professional objectives others reference
   - Work-related travel plans
 
-  ## PROFESSIONAL RELATIONSHIP CALIBRATION:
-  **Same company domain** = "User has colleague relationship with [Name] <email> (email from {{emailDate}})"
-  **Client/vendor context** = "User has business relationship with [Name] <email> (email from {{emailDate}})"
-  **Management context** = "User reports to/manages [Name] <email> (email from {{emailDate}})"
+  ## CONSERVATIVE RELATIONSHIP LANGUAGE:
+  **Same company domain** = "User has colleague contact with [Name] <email> (email from {{emailDate}})"
+  **Client/vendor context** = "User has business contact with [Name] <email> (email from {{emailDate}})"
+  **Management context** = "User has professional contact with [Name] <email> (email from {{emailDate}})"
+  **Unknown context** = "User has email contact with [Name] <email> (email from {{emailDate}})"
 
   ## EXTRACTION PRINCIPLES:
   - Don't overstate professional relationships
@@ -143,9 +194,9 @@ user: |
   - Include company context when available
   - Include temporal context: "(email from {{emailDate}})"
 
-  ## CRITICAL:
-  - Always include full email: "Name <name@company.com>"
-  - Include temporal context: "(email from {{emailDate}})"
+  {{>relationship-extraction-rules emailDate=emailDate}}
+  
+  ## PROFESSIONAL-SPECIFIC GUIDELINES:
   - Conservative relationship language
   - Focus on user's role as understood by others
   - Avoid inferring skills from discussion topics

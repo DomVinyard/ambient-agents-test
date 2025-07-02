@@ -19,7 +19,38 @@ export class AIService {
       throw new Error('OPENAI_API_KEY is not set in environment variables');
     }
     
-    this.dotprompt = new Dotprompt();
+    // Configure dotprompt with partials
+    const partials = this.loadPartials();
+    this.dotprompt = new Dotprompt({
+      partials
+    });
+  }
+
+  /**
+   * Load all partials from the partials directory
+   */
+  private loadPartials(): Record<string, string> {
+    const partialsDir = path.join(process.cwd(), 'src', 'prompts', 'partials');
+    const partials: Record<string, string> = {};
+    
+    try {
+      const partialFiles = fs.readdirSync(partialsDir);
+      
+      for (const filename of partialFiles) {
+        if (filename.endsWith('.hbs')) {
+          const partialName = filename.replace('.hbs', '');
+          const partialPath = path.join(partialsDir, filename);
+          const partialContent = fs.readFileSync(partialPath, 'utf-8');
+          
+          partials[partialName] = partialContent;
+          console.log(`📝 Loaded partial: ${partialName}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading partials:', error);
+    }
+    
+    return partials;
   }
 
   /**
@@ -62,6 +93,12 @@ export class AIService {
       .map(msg => msg.content.map(part => 'text' in part ? part.text : '').join(''))
       .join('\n');
     
+    // Log rendered prompt for debugging
+    console.log(`\n🎯 RENDERED PROMPT: ${filename}.prompt`);
+    console.log('='.repeat(80));
+    console.log(promptText);
+    console.log('='.repeat(80));
+    
     return {
       modelName,
       promptText,
@@ -71,9 +108,283 @@ export class AIService {
   }
 
   /**
-   * Process a single email to extract insights about the user using prompt chain
+   * Classify an email without extracting insights (lighter operation for fetch time)
    */
-  async processMessage(emailObj: any, userId: string): Promise<{ inferences: any[] }> {
+  async classifyEmail(emailObj: any): Promise<{ emailType: string; confidence: number; reasoning: string } | null> {
+    try {
+      // Extract email metadata
+      const headers = emailObj.payload?.headers || [];
+      const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
+      const from = headers.find((h: any) => h.name === 'From')?.value || '';
+      const to = headers.find((h: any) => h.name === 'To')?.value || '';
+      const fromDomain = from.includes('@') ? from.split('@')[1]?.replace(/[<>]/g, '') : 'unknown';
+
+      // Skip classification for sent emails - they don't use the received email classification system
+      if (emailObj.emailType === 'sent') {
+        return null;
+      }
+
+      // Use fullBody from frontend if available, otherwise extract from email object
+      const emailContent = emailObj.fullBody || extractEmailContent(emailObj);
+      const emailDate = new Date(parseInt(emailObj.internalDate || '0')).toISOString().split('T')[0];
+      const todaysDate = new Date().toISOString().split('T')[0];
+
+      const emailMetadata = {
+        subject,
+        sender: from,
+        senderDomain: fromDomain,
+        to
+      };
+
+      console.log('🔍 Classifying email during fetch...');
+      const { modelName: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
+        await this.loadPromptFile('received/classify-email', {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate
+        });
+
+      const classifyResult = await generateObject({
+        model: openai(classifyModel),
+        schema: classifySchema,
+        prompt: classifyPrompt,
+        ...classifyConfig
+      });
+
+      const { emailType, confidence, reasoning } = classifyResult.object;
+      console.log(`📋 Email classified as: ${emailType} (confidence: ${confidence}) - ${reasoning}`);
+
+      return {
+        emailType,
+        confidence,
+        reasoning
+      };
+
+    } catch (error) {
+      console.error('Error in email classification:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract insights from an email WITH classification (new combined method for extract-insights endpoint)
+   */
+  async extractInsightsWithClassification(emailObj: any, userInfo?: any): Promise<{ insights: any[]; classification: { emailType: string; confidence: number; reasoning: string } | null }> {
+    try {
+      // Use fullBody from frontend if available, otherwise extract from email object
+      let emailContent: string;
+      if (emailObj.fullBody && emailObj.fullBody.trim().length > 0) {
+        emailContent = emailObj.fullBody;
+      } else {
+        emailContent = extractEmailContent(emailObj);
+        console.log('⚠️ Extracting content from email object (fullBody not available)');
+      }
+      
+      // Extract email date from the email object
+      let emailDate: string;
+      if (emailObj.internalDate) {
+        // Convert Gmail's internalDate (milliseconds) to YYYY-MM-DD format
+        emailDate = new Date(parseInt(emailObj.internalDate)).toISOString().split('T')[0];
+      } else if (emailObj.payload?.headers) {
+        // Try to extract from headers
+        const dateHeader = emailObj.payload.headers.find((h: any) => h.name === 'Date');
+        if (dateHeader) {
+          emailDate = new Date(dateHeader.value).toISOString().split('T')[0];
+        } else {
+          emailDate = new Date().toISOString().split('T')[0]; // Fallback to today
+        }
+      } else {
+        emailDate = new Date().toISOString().split('T')[0]; // Fallback to today
+      }
+
+      // Extract rich metadata for context reasoning
+      const headers = emailObj.payload?.headers || [];
+      const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
+      const sender = headers.find((h: any) => h.name === 'From')?.value || '';
+      const to = headers.find((h: any) => h.name === 'To')?.value || '';
+      const cc = headers.find((h: any) => h.name === 'Cc')?.value || '';
+      const replyTo = headers.find((h: any) => h.name === 'Reply-To')?.value || '';
+      
+      // Extract sender domain
+      const senderEmailMatch = sender.match(/<([^>]+)>/) || sender.match(/([^\s]+@[^\s]+)/);
+      const senderEmail = senderEmailMatch ? senderEmailMatch[1] || senderEmailMatch[0] : sender;
+      const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1] : 'unknown';
+
+      // Enhanced metadata including recipients and thread info
+      const emailMetadata = {
+        subject,
+        sender,
+        senderDomain,
+        to,
+        cc,
+        replyTo,
+        threadId: emailObj.threadId,
+        emailType: emailObj.emailType || 'inbox'
+      };
+
+      // For sent emails, use the existing prompt (no classification needed)
+      if (emailObj.emailType === 'sent') {
+        const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        const { modelName, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate,
+          userInfo
+        });
+
+        const result = await generateObject({
+          model: openai(modelName),
+          schema,
+          prompt: promptText,
+          ...config
+        });
+
+        return {
+          insights: result.object.inferences,
+          classification: null // Sent emails don't use classification
+        };
+      }
+
+      // For received emails, use the combined classification + extraction approach
+      return await this.processReceivedEmailChain(emailContent, emailDate, emailMetadata, userInfo);
+
+    } catch (error) {
+      console.error('Error in insight extraction with classification:', error);
+      return {
+        insights: [],
+        classification: null
+      };
+    }
+  }
+
+  /**
+   * Extract insights from an email without classification (classification already done at fetch time) 
+   * [DEPRECATED - Use extractInsightsWithClassification instead]
+   */
+  async extractInsights(emailObj: any, userInfo?: any): Promise<any[]> {
+    try {
+      // Use fullBody from frontend if available, otherwise extract from email object
+      let emailContent: string;
+      if (emailObj.fullBody && emailObj.fullBody.trim().length > 0) {
+        emailContent = emailObj.fullBody;
+      } else {
+        emailContent = extractEmailContent(emailObj);
+        console.log('⚠️ Extracting content from email object (fullBody not available)');
+      }
+      
+      // Extract email date from the email object
+      let emailDate: string;
+      if (emailObj.internalDate) {
+        // Convert Gmail's internalDate (milliseconds) to YYYY-MM-DD format
+        emailDate = new Date(parseInt(emailObj.internalDate)).toISOString().split('T')[0];
+      } else if (emailObj.payload?.headers) {
+        // Try to extract from headers
+        const dateHeader = emailObj.payload.headers.find((h: any) => h.name === 'Date');
+        if (dateHeader) {
+          emailDate = new Date(dateHeader.value).toISOString().split('T')[0];
+        } else {
+          emailDate = new Date().toISOString().split('T')[0]; // Fallback to today
+        }
+      } else {
+        emailDate = new Date().toISOString().split('T')[0]; // Fallback to today
+      }
+
+      // Extract rich metadata for context reasoning
+      const headers = emailObj.payload?.headers || [];
+      const subject = headers.find((h: any) => h.name === 'Subject')?.value || '';
+      const sender = headers.find((h: any) => h.name === 'From')?.value || '';
+      const to = headers.find((h: any) => h.name === 'To')?.value || '';
+      const cc = headers.find((h: any) => h.name === 'Cc')?.value || '';
+      const replyTo = headers.find((h: any) => h.name === 'Reply-To')?.value || '';
+      
+      // Extract sender domain
+      const senderEmailMatch = sender.match(/<([^>]+)>/) || sender.match(/([^\s]+@[^\s]+)/);
+      const senderEmail = senderEmailMatch ? senderEmailMatch[1] || senderEmailMatch[0] : sender;
+      const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1] : 'unknown';
+
+      // Enhanced metadata including recipients and thread info
+      const emailMetadata = {
+        subject,
+        sender,
+        senderDomain,
+        to,
+        cc,
+        replyTo,
+        threadId: emailObj.threadId,
+        emailType: emailObj.emailType || 'inbox'
+      };
+
+      // For sent emails, use the existing prompt
+      if (emailObj.emailType === 'sent') {
+        const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        
+        const { modelName, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate,
+          userInfo
+        });
+
+        const result = await generateObject({
+          model: openai(modelName),
+          schema,
+          prompt: promptText,
+          ...config
+        });
+
+        return result.object.inferences;
+      }
+
+      // For received emails, we already have classification from fetch time, so just do extraction
+      // Use the email's existing classification to determine which extraction prompt to use
+      let extractPromptName = 'received/extract-personal'; // default fallback
+      
+      if (emailObj.classification?.emailType) {
+        const extractPromptMap = {
+          'newsletter': 'received/extract-newsletter',
+          'service': 'received/extract-service', 
+          'personal': 'received/extract-personal',
+          'professional': 'received/extract-professional'
+        };
+        extractPromptName = extractPromptMap[emailObj.classification.emailType as keyof typeof extractPromptMap] || 'received/extract-personal';
+      }
+
+      console.log(`⚡ Using specialized prompt: ${extractPromptName} (based on existing classification: ${emailObj.classification?.emailType})`);
+      const todaysDate = new Date().toISOString().split('T')[0];
+      
+      const { modelName: extractModel, promptText: extractPrompt, schema: extractSchema, config: extractConfig } = 
+        await this.loadPromptFile(extractPromptName, {
+          emailContent,
+          emailDate,
+          emailMetadata,
+          todaysDate,
+          userInfo
+        });
+
+      const extractResult = await generateObject({
+        model: openai(extractModel),
+        schema: extractSchema,
+        prompt: extractPrompt,
+        ...extractConfig
+      });
+
+      console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${extractPromptName}`);
+      return extractResult.object.inferences;
+
+    } catch (error) {
+      console.error('Error in insight extraction:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Process a single email to extract insights about the user using prompt chain (legacy method - includes classification)
+   */
+  async processMessage(emailObj: any, userId: string): Promise<{ inferences: any[]; classification: { emailType: string; confidence: number; reasoning: string } | null }> {
     try {
       // Use fullBody from frontend if available, otherwise extract from email object
       let emailContent: string;
@@ -144,15 +455,25 @@ export class AIService {
           ...config
         });
 
-        return { inferences: result.object.inferences };
+        return { 
+          inferences: result.object.inferences,
+          classification: null // Sent emails don't use classification yet
+        };
       }
 
       // For received emails, use the new prompt chain
-      return await this.processReceivedEmailChain(emailContent, emailDate, emailMetadata);
+      const result = await this.processReceivedEmailChain(emailContent, emailDate, emailMetadata);
+      return {
+        inferences: result.insights, // Convert insights back to inferences for legacy compatibility
+        classification: result.classification
+      };
 
     } catch (error) {
       console.error('Error in AI processMessage:', error);
-      return { inferences: [] };
+      return { 
+        inferences: [],
+        classification: null
+      };
     }
   }
 
@@ -162,8 +483,9 @@ export class AIService {
   private async processReceivedEmailChain(
     emailContent: string, 
     emailDate: string, 
-    emailMetadata: any
-  ): Promise<{ inferences: any[] }> {
+    emailMetadata: any,
+    userInfo?: any
+  ): Promise<{ insights: any[]; classification: { emailType: string; confidence: number; reasoning: string } | null }> {
     try {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
@@ -198,7 +520,14 @@ export class AIService {
       const extractPromptName = extractPromptMap[emailType as keyof typeof extractPromptMap];
       if (!extractPromptName) {
         console.warn(`⚠️ Unknown email type: ${emailType}, skipping extraction`);
-        return { inferences: [] };
+        return { 
+          insights: [],
+          classification: {
+            emailType,
+            confidence,
+            reasoning
+          }
+        };
       }
 
       console.log(`⚡ Using specialized prompt: ${extractPromptName}`);
@@ -207,7 +536,8 @@ export class AIService {
           emailContent,
           emailDate,
           emailMetadata,
-          todaysDate
+          todaysDate,
+          userInfo
         });
 
       const extractResult = await generateObject({
@@ -218,12 +548,22 @@ export class AIService {
       });
 
       console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${emailType} prompt`);
-      return { inferences: extractResult.object.inferences };
+      return { 
+        insights: extractResult.object.inferences,
+        classification: {
+          emailType,
+          confidence,
+          reasoning
+        }
+      };
 
     } catch (error) {
       console.error('Error in received email chain:', error);
       // Fallback to empty results rather than failing completely
-      return { inferences: [] };
+      return { 
+        insights: [],
+        classification: null
+      };
     }
   }
 
@@ -259,7 +599,8 @@ export class AIService {
         isBehavioral: category === 'behavioral',
         isAccounts: category === 'accounts',
         isRelationships: category === 'relationships',
-        isGoals: category === 'goals'
+        isGoals: category === 'goals',
+        isStyle: category === 'style'
       };
 
       // Load and render the blend-profile prompt

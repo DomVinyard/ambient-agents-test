@@ -52,74 +52,74 @@ user: |
   ## COMPILATION OBJECTIVES:
 
   ### PRIMARY GOAL
-  Create a single, comprehensive profile that tells the complete story of {{userInfo.firstName}} {{userInfo.lastName}} by intelligently weaving together all available sections into a cohesive narrative.
+  Create an AI assistant manual for {{userInfo.firstName}} {{userInfo.lastName}} - a practical profile that helps an LLM understand how to communicate with, assist, and be genuinely useful to this person.
 
   ### COMPILATION PRINCIPLES:
 
-  **1. NARRATIVE FLOW**
-  - Start with core identity and current professional context
-  - Flow naturally from professional to personal aspects
-  - End with future aspirations and relationship context
-  - Use smooth transitions between different life areas
+  **1. OPERATIONAL FOCUS**
+  - How does this person think and make decisions?
+  - What's their communication style and what do they respond to?
+  - What tools, workflows, and approaches do they use?
+  - What are their current priorities and challenges?
 
-  **2. INFORMATION SYNTHESIS**
-  - Merge complementary information from different sections
-  - Resolve any apparent contradictions using most recent/confident data
-  - Cross-reference details to build a complete picture
-  - Eliminate redundancy while preserving nuance
+  **2. PRACTICAL ASSISTANCE CONTEXT**
+  - What kind of help do they typically need?
+  - How do they prefer to receive information?
+  - What are their specific preferences, habits, and patterns?
+  - What context would help an AI be more useful?
 
-  **3. COMPREHENSIVE COVERAGE**
-  - Include essential information from ALL provided sections
-  - Balance professional and personal aspects appropriately
-  - Highlight unique characteristics and distinguishing factors
-  - Maintain important details that define this person
+  **3. AUTHENTIC PERSONALITY**
+  - How do they actually talk and express themselves?
+  - What are their quirks, preferences, and distinctive traits?
+  - How do they interact with different types of people?
+  - What motivates them and how do they approach problems?
 
-  **4. READABILITY & STRUCTURE**
-  - Write in flowing, natural prose (not bullet points)
-  - Use clear paragraph breaks for different life areas
-  - Maintain consistent voice and perspective
-  - Ensure the profile reads like a cohesive biography
+  **4. CURRENT LIFE CONTEXT**
+  - What's happening in their life right now?
+  - What are they working on or focused on?
+  - What relationships and dynamics are important?
+  - What challenges or goals are they navigating?
 
   ## COMPILATION STRUCTURE:
 
-  **OPENING:** Lead with core identity, current role, and primary professional context
+  **COMMUNICATION & THINKING STYLE:** How they communicate, make decisions, and prefer to work
   
-  **PROFESSIONAL FOUNDATION:** Synthesize work life, skills, achievements, and career trajectory
+  **CURRENT PROFESSIONAL CONTEXT:** What they're working on now and how they approach their work
   
-  **PERSONAL DIMENSION:** Integrate family, interests, lifestyle, and personal characteristics
+  **TOOLS & PREFERENCES:** Specific services, tools, brands, and approaches they use or prefer
   
-  **OPERATIONAL STYLE:** Combine communication preferences, behavioral patterns, and work methods
+  **PERSONAL CONTEXT & RELATIONSHIPS:** Key relationships, life situation, and personal interests that provide context
   
-  **DIGITAL & SERVICE ECOSYSTEM:** Consolidate technology usage, platform preferences, and service relationships
-  
-  **RELATIONSHIP NETWORK:** Include family, professional, and personal connections
-  
-  **FUTURE TRAJECTORY:** End with goals, aspirations, and planned directions
+  **ASSISTANCE PREFERENCES:** How they like to be helped and what kind of support is most useful
+
+  **LENGTH TARGET:** 4-6 detailed paragraphs that provide rich context (~400-600 words)
 
   ## QUALITY STANDARDS:
 
-  **COHERENCE:** The profile should read as if written about one person by someone who knows them well
+  **PRACTICAL UTILITY:** An LLM reading this should understand how to interact with and assist this person effectively
   
-  **COMPLETENESS:** Include meaningful details from all sections without overwhelming the reader
+  **SPECIFIC DETAILS:** Include concrete examples, specific tools, actual names, and real context rather than generalities
   
-  **ACCURACY:** Maintain factual precision while creating narrative flow
+  **CURRENT RELEVANCE:** Focus on what's happening now and what matters most in their current life situation
   
-  **DISTINCTIVENESS:** Highlight what makes this person unique and memorable
+  **AUTHENTIC VOICE:** Capture their actual communication style and personality, not a sanitized professional version
   
-  **PROFESSIONAL TONE:** Maintain appropriate formality while being engaging and human
+  **ACTIONABLE CONTEXT:** Provide information that helps an AI understand preferences, decision-making, and assistance needs
 
   ## COMPILATION INSTRUCTIONS:
 
-  1. **INTEGRATE, DON'T CONCATENATE:** Weave information together rather than simply joining sections
+  1. **INCLUDE SPECIFIC TOOLS & SERVICES:** Mention actual apps, services, platforms, and tools they use
   
-  2. **PRIORITIZE BY SIGNIFICANCE:** Lead with most important and defining characteristics
+  2. **CAPTURE COMMUNICATION PATTERNS:** How do they write emails? What's their tone? How do they express preferences?
   
-  3. **RESOLVE CONFLICTS:** When sections contain conflicting information, use the most recent and confident data
+  3. **HIGHLIGHT CURRENT PRIORITIES:** What are they actually working on right now? What's on their mind?
   
-  4. **MAINTAIN PROPORTIONALITY:** Balance the amount of content from each section based on its richness and relevance
+  4. **DOCUMENT PREFERENCES:** Specific likes, dislikes, brands, approaches, and ways they prefer to do things
   
-  5. **CREATE CONNECTIONS:** Show how different aspects of their life relate to each other
+  5. **PRESERVE RELATIONSHIP CONTEXT:** Key people in their life and how they interact with different types of relationships
   
-  6. **PRESERVE SPECIFICS:** Keep important names, dates, companies, and specific details that add authenticity
+  6. **INCLUDE OPERATIONAL DETAILS:** Workflows, habits, decision-making patterns, and approaches to problems
+  
+  7. **FOCUS ON ASSISTANCE VALUE:** What context would help an AI assistant be genuinely useful to this person?
 
-  Create a comprehensive profile that would give a complete stranger a thorough understanding of who {{userInfo.firstName}} {{userInfo.lastName}} is both professionally and personally, while maintaining the factual integrity of the source material. 
+  Create a comprehensive AI assistant manual that helps an LLM understand {{userInfo.firstName}} {{userInfo.lastName}} as a real person with specific preferences, current priorities, and distinct ways of thinking and operating. This should be practical and detailed enough to enable genuinely useful assistance. 

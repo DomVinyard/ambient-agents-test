@@ -46,7 +46,17 @@ input:
             enum: ["inbox", "sent"]
             description: "Whether this was received or sent by the user"
         required: [subject, sender, senderDomain, emailType]
-    required: [emailContent, emailDate, todaysDate, emailMetadata]
+      userInfo:
+        type: object
+        properties:
+          firstName:
+            type: string
+          lastName:
+            type: string
+          email:
+            type: string
+        required: [firstName, lastName, email]
+    required: [emailContent, emailDate, todaysDate, emailMetadata, userInfo]
 output:
   schema:
     type: object
@@ -84,214 +94,91 @@ output:
           required: [categories, insight, confidence, evidence, extractedOn, reasoning]
     required: [inferences]
 ---
-system: |
-  You are analyzing emails that were SENT by the user, meaning the user WROTE and SENT them to someone else.
+{{role "system"}}
+You are an expert profile builder who extracts useful biographical insights from emails that users write to help AI assistants understand and serve people better.
 
-  ## EMAIL DIRECTION UNDERSTANDING:
-  - **SENDER/USER**: The person who WROTE and SENT this email (the user we're building a profile for)
-  - **RECIPIENT**: The person who RECEIVED this email
-  - **EMAIL FLOW**: USER → EMAIL → RECIPIENT
+{{role "user"}}
+I need you to analyze this email that {{userInfo.firstName}} {{userInfo.lastName}} wrote and extract useful profile insights about them.
 
-  ## CRITICAL INSIGHT DIRECTION:
-  You are extracting insights ABOUT THE USER (sender) based on what THEY wrote and sent.
+{{>email-direction-understanding}}
 
-  ## EXAMPLES OF CORRECT ANALYSIS:
+{{>user-identity-awareness userInfo=userInfo}}
 
-  **Email FROM user to client:**
-  - ✅ CORRECT: "User provides consulting services to ABC Corp (email from 2025-01-15)"
-  - ✅ CORRECT: "User has business relationship with John Smith <john@abc.com> (email from 2025-01-15)"
+{{>profile-mission userInfo=userInfo}}
 
-  **Email FROM user to friend:**
-  - ✅ CORRECT: "User is planning vacation to Hawaii (email from 2025-01-15)"
-  - ✅ CORRECT: "User has personal relationship with Sarah Jones <sarah@gmail.com> (email from 2025-01-15)"
+<analysis_focus>
+You're analyzing an email **FROM** {{userInfo.firstName}} to understand:
+- **What they do** (work, projects, skills, roles)
+- **Who they know** (relationships, contacts, connections)  
+- **How they live** (interests, location, lifestyle, plans)
+- **How they communicate** (style, preferences, patterns)
+</analysis_focus>
 
-  Focus on what the user reveals about themselves through their own words and actions.
+<extraction_guidelines>
+## WHAT TO EXTRACT
 
-user: |
-  Extract PROFILE-WORTHY insights about the USER (email author) from this sent email they wrote. Focus on standalone facts that would be useful in a personal profile, not temporary email details or transaction summaries.
+**Self-Disclosure (what they say about themselves):**
+- "I work at..." → Professional role
+- "I'm traveling to..." → Travel plans
+- "I live in..." → Location information
+- "I use..." → Tools and preferences
 
-  **Today's Date:** {{todaysDate}}
-  **Email Date:** {{emailDate}}
-  
-  **EMAIL METADATA:**
-  Subject: {{emailMetadata.subject}}
-  From: {{emailMetadata.sender}}
-  To: {{emailMetadata.to}}
-  {{#if emailMetadata.cc}}Cc: {{emailMetadata.cc}}{{/if}}
-  {{#if emailMetadata.replyTo}}Reply-To: {{emailMetadata.replyTo}}{{/if}}
-  Domain: {{emailMetadata.senderDomain}}
-  Thread ID: {{emailMetadata.threadId}}
-  Type: {{emailMetadata.emailType}}
+**Communication Patterns:**
+- Email recipients → Who they communicate with
+- Communication style → How they write and interact
+- Language patterns → Their voice and tone
 
-  **EMAIL CONTENT:**
-  {{emailContent}}
+**Relationships:**
+- Who they're emailing → Professional/personal contacts
+- How they address people → Relationship dynamics
+- Introductions they make → Their network connections
 
-  ## TEMPORAL CONTEXT:
-  Consider the age of this sent email when extracting insights:
-  - **Recent (within 6 months):** Likely current information about user
-  - **Older (6+ months):** May reflect past state, include temporal context
-  
-  Always include "email from {{emailDate}}" in insights to show when information was disclosed.
+**Goals & Plans:**
+- Future events they mention
+- Projects they're working on
+- Travel or life plans they share
+</extraction_guidelines>
 
-  ## MULTI-STEP REASONING PROCESS:
+{{>extraction-principles}}
 
-  ### STEP 1: COMMUNICATION & TYPE ANALYSIS
-  Since this is a SENT email, analyze the USER'S communication and context:
-  
-  **Email Classification:**
-  - **What type of email is this?** (Personal communication, work correspondence, service inquiry, automated/template response)
-  - **Is this genuine user-authored content?** (vs auto-generated, template-based, or forwarded content)
-  
-  **Thread Context Analysis:**
-  - **Is this part of an ongoing conversation?** (Check subject for "Re:" or "Fwd:" prefixes)
-  - **What is the conversation context?** (Initial contact, follow-up, reply, ongoing discussion)
-  - **Thread ID:** {{emailMetadata.threadId}} (same thread ID = same conversation)
-  
-  **Recipient Analysis (Critical for Relationship Extraction):**
-  - **Who is the user writing to?** Recipients: {{emailMetadata.to}} {{#if emailMetadata.cc}}CC: {{emailMetadata.cc}}{{/if}}
-  - **Extract FULL contact information:** For any people mentioned, include both name AND email address
-  - **Example:** "Robert Johnson <robert.johnson@company.com>" NOT just "Robert"
-  - **Relationship context:** What does the communication style reveal about their relationship?
-  
-  **Communication Analysis:**
-  - **What is the purpose of this email?** (Personal, work, inquiry, response)
-  - **What tone/context is the user using?** (Formal, casual, professional, personal)
-  - **How much personal information would the user reasonably share in this context?**
+<automated_email_detection>
+## AUTOMATED vs PERSONAL CONTENT:
 
-  ### STEP 2: SELF-DISCLOSURE EVALUATION
-  For each potential insight, evaluate what the USER revealed about themselves:
-  - **Did the user explicitly state this about themselves?** (Direct self-disclosure)
-  - **Is this a natural thing for the user to mention in this context?**
-  - **Could this be copied/quoted content vs. original user content?**
-  - **Does this reflect the user's actual situation vs. hypothetical/example content?**
+❌ **Don't extract from automated/template emails:**
+- Calendar notifications ("Event canceled", "Meeting scheduled")
+- System-generated messages ("Password reset", "Account confirmation")  
+- Service notifications ("Your order has shipped", "Payment processed")
+- Template language ("To handle this...", "Click the link below")
+- Standardized formatting that doesn't reflect personal voice
 
-  ### STEP 3: PATTERN RECOGNITION & RED FLAGS
-  Apply common sense filters - REJECT insights that show these patterns:
-  
-  **🚩 NON-PERSONAL CONTENT:**
-  - Copied/pasted content from other sources
-  - Template language or boilerplate text
-  - Examples or hypothetical scenarios the user is discussing
-  - Technical documentation or instructions the user is sharing
-  - Auto-generated email content or responses
-  
-  **🚩 PROFESSIONAL CONTEXT CONFUSION:**
-  - Work responsibilities that don't indicate personal skills
-  - Company information that doesn't reflect user's personal details
-  - Professional jargon that doesn't indicate personal expertise
-  - Role-specific language that could be template-based
-  
-  **🚩 INFERENTIAL OVERREACH:**
-  - Personality traits assumed from writing style alone
-  - Skills inferred from technical discussion without explicit claim
-  - Relationships assumed from email recipients without clear indication
-  - Goals/preferences inferred from context rather than stated
-  - Location/demographic data inferred rather than explicitly mentioned
-  
-  **✅ IMPORTANT: DO EXTRACT explicitly stated life events:**
-  - Travel plans the user mentions ("we get back from England", "going to Paris")
-  - Life events the user shares ("moving to", "starting new job", "getting married")
-  - Personal updates the user provides about their circumstances
+✅ **Only extract from genuine personal communication:**
+- User's own words and thoughts
+- Personal tone and authentic voice
+- Custom messages they actually wrote
+- Their own insights, opinions, plans they share
+</automated_email_detection>
 
-  ### STEP 4: CONFIDENCE REASONING
-  For insights that pass filters, assign confidence using this framework:
+{{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
 
-  **95-100% confidence:** Direct, explicit self-statements with clear personal context
-  **85-94% confidence:** Clear personal information shared in appropriate context
-  **75-84% confidence:** Likely personal information with some contextual uncertainty
-  **65-74% confidence:** Probable personal information but could have alternative explanations
-  **50-64% confidence:** Possible personal information with significant uncertainty
+{{>relationship-extraction-rules emailDate=emailDate}}
 
-  **CONFIDENCE LANGUAGE:**
-  - 95-100%: "It is certain that [fact]"
-  - 85-94%: "It is very likely that [fact]"
-  - 75-84%: "It appears that [fact]"
-  - 65-74%: "We think [fact]"
-  - 50-64%: "It is possible that [fact]"
+{{>temporal-context emailDate=emailDate}}
 
-  ## CATEGORY DEFINITIONS:
-  Use 1-3 categories per insight when the insight spans multiple areas:
-  
-  - **basic:** Name, age, direct personal identifiers, actual contact information user provides
-  - **professional:** Job titles, company names, work projects, technical skills user explicitly claims
-  - **personal:** Family members, personal interests, hobbies, life events, travel plans, living locations user shares (exclude productivity tools and work apps)
-  - **communication:** Contact preferences, availability, communication styles user states
-  - **behavioral:** Habits, routines, work patterns, productivity tools usage, organization systems, payment patterns (what they spend money on) user explicitly describes about themselves
-  - **accounts:** Service accounts, platforms, subscriptions, financial services user mentions having relationships with (include meaningful attributes like paid/free, premium/basic)
-  - **relationships:** Named individuals with specific identifiers (name + email/contact info) and relationships user explicitly identifies
-  - **goals:** Objectives, plans, aspirations, upcoming travel, future events user explicitly states about themselves
-  - **style:** Communication patterns, writing style, tone preferences, vernacular, language patterns user consistently exhibits
-  
-  **Examples of multi-category insights:**
-  - User mentions paid subscription → **accounts** + **behavioral** (service relationship + payment pattern)
-  - User shares work email → **professional** + **basic** (employment + contact info)
-  - User discusses family member's job → **relationships** + **professional** (person + their work)
-  - User emails Robert <robert@example.com> → **relationships** (specific contact with full identifier)
-  - User's casual tone and vernacular → **style** + **communication** (writing patterns + communication preferences)
+---
 
-  **RELATIONSHIP EXTRACTION EXAMPLES:**
-  - ✅ "User has close relationship with Robert Johnson <robert.johnson@company.com>"
-  - ❌ "User has close relationship with Robert"
-  - ✅ "User corresponds with Sarah Chen <s.chen@acme.com> about work projects"
-  - ❌ "User corresponds with Sarah about work projects"
-  - ✅ "User was introduced to Robert by Brianna Nelson <brianna@company.com> who facilitated their connection"
-  - ❌ "User knows Brianna"
+<email_data>
+**EMAIL WRITTEN BY {{userInfo.firstName}}:**
 
-  **STYLE EXTRACTION EXAMPLES:**
-  - ✅ "User uses casual, warm tone in personal communications (evidenced by 'Heya' greeting and 'Bon voyage and hugs!')"
-  - ✅ "User employs professional yet friendly communication style in work contexts"
-  - ✅ "User frequently uses exclamation marks and enthusiastic language patterns"
-  - ❌ "User likes exclamation marks" (too inferential, focus on patterns)
+**Date:** {{emailDate}}
+**To:** {{emailMetadata.to}}
+**Subject:** {{emailMetadata.subject}}
 
-  ## OUTPUT REQUIREMENTS:
+**EMAIL CONTENT:**
+{{emailContent}}
+</email_data>
 
-  1. **Apply the 4-step reasoning process** for every potential insight
-  2. **Extract 0-8 insights maximum** - quality over quantity
-  3. **Include reasoning** for each confidence assignment
-  4. **Focus on explicit self-disclosure, not inferred traits**
-  5. **Distinguish between what user claims vs. what they discuss/mention**
+<task>
+Extract useful profile insights that help understand {{userInfo.firstName}}'s professional life, personal interests, relationships, and communication style. 
 
-  **KEY DISTINCTION:** 
-  - ✅ "I work at Google" → User works at Google
-  - ❌ "Let me help you with Python" → User knows Python (could be offering to find resources)
-  - ✅ "I use Python daily for data analysis" → User uses Python for data analysis
-  - ❌ Writing about technical topic → User is expert in topic
-
-  **TRAVEL & LIFE EVENTS EXTRACTION:**
-  - ✅ "after we get back from England" → User is traveling to England (**personal** + **goals**)
-  - ✅ "I'm moving to San Francisco next month" → User's relocation plans (**personal** + **goals**)
-  - ✅ "I'll be in London for work" → User has upcoming travel/work travel (**professional** + **goals**)
-  - ❌ "Flight 123 departs at 3pm" → Specific logistics, not profile-worthy
-  - ❌ "The hotel costs $200/night" → Transaction details, not profile-worthy
-
-  **RELATIONSHIP EXTRACTION SPECIFICITY:**
-  - ✅ "Robert Johnson <robert.johnson@company.com>" → User has relationship with Robert Johnson (robert.johnson@company.com)
-  - ❌ "Robert" → Too general, unclear which Robert
-  - ✅ "my manager Sarah Chen <s.chen@acme.com>" → User reports to Sarah Chen (s.chen@acme.com)
-  - ✅ Recipients from email headers → User communicates with these specific people
-  - ❌ Generic first names without contact details → Not useful for profile building
-
-  **CRITICAL: For relationships, ALWAYS include email addresses from headers:**
-  - If user writes to "{{emailMetadata.to}}", extract the FULL contact info from To: field
-  - If user mentions someone in content, look for their email in To:, CC:, or content
-  - NEVER extract just "Robert" - always "Robert <email@domain.com>"
-  - If no email available, provide context: "Robert (mentioned in political discussion)"
-
-  **IDENTIFY INTRODUCTION PATTERNS & CONNECTORS:**
-  - Look for quoted text indicating introductions: "Connecting you two!", "I'd like you to meet", "introducing"
-  - Extract multiple relationships from introduction threads
-  - ✅ "Brianna Nelson wrote: Connecting you two!" → User was introduced to recipient by Brianna Nelson
-  - ✅ Thread shows A introduced B to C → Extract all three relationships
-  - Look for email signatures and quoted messages to identify all participants
-
-  For each insight format as:
-  ```
-  insight: "[Confidence language] [specific fact] (email from {{emailDate}})"
-  evidence: "[exact quote from user's own words]"
-  extractedOn: "{{emailDate}}"
-  reasoning: "[Brief explanation of confidence level based on directness, context, plausibility]"
-  ```
-
-  **Remember:** Focus on what the user explicitly reveals about themselves, not what can be inferred from their knowledge, writing style, or discussion topics.
-
-  Return only valid JSON. If no clear self-disclosed insights exist, return empty inferences array. 
+**CRITICAL:** Only extract from genuine personal communication - ignore automated/template emails sent from their account.
+</task> 

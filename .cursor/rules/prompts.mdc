@@ -1,0 +1,159 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Prompt Engineering Philosophy
+
+## The Core Problem: Defensive vs. Goal-Oriented Prompting
+
+### ❌ **Defensive Prompting (Bad)**
+**Mindset:** "How do I avoid making mistakes with this input?"
+- Obsessed with edge cases and false positives
+- Walls of warnings and "DO NOT" examples  
+- Treats every input as suspicious
+- Focuses on what NOT to do
+- Results in overly conservative, paranoid behavior
+
+### ✅ **Goal-Oriented Prompting (Good)**  
+**Mindset:** "What useful things can I accomplish with this input?"
+- Focused on the mission and desired outcome
+- Clear principles over defensive examples
+- Reasonable inference encouragement
+- Focuses on what TO do
+- Results in useful, practical outputs
+
+## Real Example Transformation
+
+### Before: Defensive Paranoia (250+ lines)
+```
+## ⚠️ CRITICAL: LIMITED EMAIL SAMPLE WARNING
+- This is ONE EMAIL from a NARROW WINDOW
+- Could be: trial account, one-time use, promotional email
+- DO NOT assume service usage depth, frequency, payment status
+- Use conservative language: "User has account with" rather than "actively uses"
+- Distinguish between promotional invitations and actual service confirmations
+- Avoid overstating service relationship significance
+
+❌ DO NOT EXTRACT (Promotional content about competitors):
+- "Switch from your current provider" → No evidence
+- "50% off what you pay competitors" → Refers to competitors
+[...50 more defensive examples...]
+```
+
+### After: Goal-Oriented Clarity (60 lines)
+```
+## YOUR MISSION: Profile Builder
+Think like this: "What useful things about this person's life, preferences, 
+and situation can I learn from this service email?"
+
+## MAKE REASONABLE INFERENCES
+Geographic Location:
+- "Your dentist in San Mateo" → User has dentist in San Mateo, likely lives in Bay Area
+
+## SIMPLE RULES
+✅ Extract what they DO, not what they RECEIVE:
+- Focus on their choices, actions, and relationships  
+- Don't infer behavior from passive email receipt
+```
+
+## Key Principles
+
+### 1. **Mission Clarity**
+- Start with clear purpose: "You are building a profile to help an AI assistant..."
+- Define the goal explicitly
+- Keep the mission front and center
+
+### 2. **Reasonable Inference Encouragement**
+- Give examples of GOOD inferences to make
+- "Your dentist in San Mateo" → User likely lives in Bay Area
+- Encourage helpful assumptions over paranoid avoidance
+
+### 3. **Simple Principles Over Defensive Examples**
+**Bad:** List 50 examples of what NOT to extract
+**Good:** One clear principle: "Extract what they DO, not what they RECEIVE"
+
+### 4. **Proper Role Distribution**
+```
+{{role "system"}}
+You are an expert profile builder. [WHO you are]
+
+{{role "user"}}  
+I need you to analyze this email... [WHAT to do + DATA + CONTEXT]
+```
+
+### 5. **Semantic Structure**
+Use XML tags for clear logical boundaries:
+```
+<mission>
+[role and goal definition]
+</mission>
+
+<inference_guidelines>
+[specific patterns to follow]
+</inference_guidelines>
+
+<extraction_rules>
+[simple principles]
+</extraction_rules>
+```
+
+## The Profile Test
+
+For any extraction prompt, ask: **"Would this help an AI assistant understand and serve this person better in 6 months?"**
+
+✅ **Biographical insights:**
+- "Lives in San Mateo area" → Useful for local recommendations
+- "Has dentist relationship" → Useful for health context  
+- "Proactive about oral health" → Useful personality insight
+
+❌ **Transactional noise:**
+- "Was asked to leave review" → Not useful later
+- "Received feedback request" → Email mechanics, not user traits
+
+## Common Anti-Patterns to Avoid
+
+### 1. **The Legal Document Pattern**
+- Treating prompts like terms of service
+- Exhaustive edge case coverage
+- Defensive language focused on liability
+
+### 2. **The Example Explosion Pattern**  
+- Adding specific examples for every edge case
+- "DO NOT extract when user receives..." [50 examples]
+- Fighting symptoms instead of addressing root cause
+
+### 3. **The Conservative Trap Pattern**
+- "Use conservative language"
+- "DO NOT assume"  
+- "Avoid overstating"
+- Missing obvious useful inferences
+
+### 4. **The Wrong Mental Model Pattern**
+- Thinking like: "How do I avoid mistakes?"
+- Instead of: "How do I be useful?"
+
+## Success Metrics
+
+**Good prompts produce:**
+- Useful, actionable insights
+- Reasonable inferences that help achieve the goal
+- Clear, focused outputs
+- Appropriate confidence levels
+
+**Bad prompts produce:**
+- Overly conservative, paranoid outputs
+- Missed obvious inferences  
+- Focus on what NOT to do
+- Paralysis through over-caution
+
+## Implementation Steps
+
+1. **Define the mission clearly** - What are you trying to accomplish?
+2. **Encourage reasonable inferences** - Give examples of GOOD reasoning
+3. **Use simple principles** - Replace defensive examples with clear rules
+4. **Structure semantically** - Use XML tags for logical separation
+5. **Test the profile utility** - Would this help in 6 months?
+6. **Optimize role distribution** - System = WHO, User = WHAT + DATA
+
+Remember: **Goal-oriented prompting focuses on being useful. Defensive prompting focuses on avoiding blame.**

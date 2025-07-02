@@ -21,7 +21,7 @@ export interface ProfileBuildResult {
 }
 
 class ProfileService {
-  private aiLimit = pLimit(20);
+  private aiLimit = pLimit(200);
 
   private getAuthTokens() {
     const authData = localStorage.getItem('ambient-agents-auth');
@@ -101,10 +101,12 @@ class ProfileService {
               tokens,
               emailId: email.id,
               emailData: email,
+              userInfo: currentUserInfo,
               sessionId: 'default'
             });
           
             const insights = response.data.insights || [];
+            const classification = response.data.classification;
             
             // Emit insights in real-time for status updates
             if (insights.length > 0 && options.onInsightReceived) {
@@ -113,7 +115,8 @@ class ProfileService {
             
             return {
               emailId: email.id,
-              insights
+              insights,
+              classification
             };
           } catch (error: any) {
             console.error(`❌ Failed to extract insights from email "${email.subject}":`, error?.response?.data?.error || error?.message);
@@ -131,6 +134,18 @@ class ProfileService {
       
       const extractResults = await Promise.all(extractPromises);
       const successfulEmails = extractResults.filter(r => r.insights.length > 0).length;
+      
+      // Update stored emails with fresh classification data
+      const updatedEmails = currentEmails.map(email => {
+        const extractResult = extractResults.find(r => r.emailId === email.id);
+        if (extractResult?.classification) {
+          return { ...email, classification: extractResult.classification };
+        }
+        return email;
+      });
+      
+      // Store updated emails with classification data
+      await storageService.setEmails(updatedEmails);
       
       // Step 2: Group insights by category
       const allInsights: any[] = [];

@@ -17,6 +17,11 @@ export interface Email {
   threadId: string;
   labelIds: string[];
   emailType: 'inbox' | 'sent' | 'unknown';
+  classification?: {
+    emailType: 'newsletter' | 'service' | 'personal' | 'professional';
+    confidence: number;
+    reasoning: string;
+  };
 }
 
 export interface Insight {

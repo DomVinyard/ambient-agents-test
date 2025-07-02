@@ -1,0 +1,20 @@
+<multi_turn_conversation_analysis>
+## MULTI-TURN CONVERSATION ANALYSIS:
+
+**Thread Structure Understanding:**
+- **Thread ID:** {{emailMetadata.threadId}} - All emails with this ID are part of the same conversation
+- **Conversation Flow:** Look for "Re:" "Fwd:" patterns to understand message sequence
+- **Quoted Content:** Identify "> " prefixed text, "On [date], [person] wrote:" patterns
+- **Signature Blocks:** Recognize "--" or multiple line breaks indicating signature separation
+
+**Multi-Message Context:**
+- **Original vs Reply:** Is this an initial message or response in ongoing conversation?
+- **Conversation Evolution:** How has the topic/relationship developed through exchanges?
+- **Referenced Previous Messages:** What earlier exchanges are referenced?
+- **Ongoing vs One-off:** Is this part of ongoing relationship or isolated contact?
+
+**Thread Participant Identification:**
+- **Primary Conversation:** Who are the main participants across all messages?
+- **Quoted Speakers:** When content is quoted, identify who originally wrote what
+- **CC/BCC Patterns:** Additional thread participants who may join/leave conversation
+</multi_turn_conversation_analysis> 

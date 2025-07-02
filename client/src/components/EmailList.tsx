@@ -1,6 +1,18 @@
-import { Box, VStack, Button, Text, List, ListItem, Spinner, Alert, AlertIcon, Badge, Flex } from '@chakra-ui/react';
-import { Mail, RefreshCw, Clock } from 'lucide-react';
-import { Email } from '../types';
+import {
+  Box,
+  VStack,
+  Button,
+  Text,
+  List,
+  ListItem,
+  Spinner,
+  Alert,
+  AlertIcon,
+  Badge,
+  Flex,
+} from "@chakra-ui/react";
+import { Mail, RefreshCw, Clock } from "lucide-react";
+import { Email } from "../types";
 
 interface EmailListProps {
   emails: Email[];
@@ -14,19 +26,25 @@ interface EmailListProps {
   insightsByEmail: Record<string, any[]>;
 }
 
-export default function EmailList({ 
-  emails, 
-  selectedEmailId, 
-  onEmailSelect, 
+export default function EmailList({
+  emails,
+  selectedEmailId,
+  onEmailSelect,
   onOpenFetchModal,
   isLoading,
   processingEmailIds,
   queuedEmailIds,
   error,
-  insightsByEmail
+  insightsByEmail,
 }: EmailListProps) {
   return (
-    <Box flex="1" h="100%" bg="white" borderRight="1px solid" borderColor="gray.200">
+    <Box
+      flex="1"
+      h="100%"
+      bg="white"
+      borderRight="1px solid"
+      borderColor="gray.200"
+    >
       <VStack spacing={0} h="100%">
         {/* Header */}
         <Box p={4} borderBottom="1px solid" borderColor="gray.200" w="100%">
@@ -39,7 +57,7 @@ export default function EmailList({
             loadingText={emails.length > 0 ? "Processing..." : "Fetching..."}
             w="100%"
           >
-            {emails.length > 0 ? 'Regenerate' : 'Generate'}
+            {emails.length > 0 ? "Regenerate" : "Generate"}
           </Button>
         </Box>
 
@@ -57,7 +75,13 @@ export default function EmailList({
               <Flex justify="center" mb={3}>
                 <Mail size={24} color="#A0AEC0" />
               </Flex>
-              <Text fontSize="sm" color="gray.500" lineHeight="1.4" maxW="200px" mx="auto">
+              <Text
+                fontSize="sm"
+                color="gray.500"
+                lineHeight="1.4"
+                maxW="200px"
+                mx="auto"
+              >
                 No emails loaded. Click "Fetch Emails" to start.
               </Text>
             </Box>
@@ -70,7 +94,7 @@ export default function EmailList({
                 const isQueued = queuedEmailIds.has(email.id);
                 const insightCount = insightsByEmail[email.id]?.length || 0;
                 const hasInsights = insightCount > 0;
-                
+
                 return (
                   <ListItem
                     key={email.id}
@@ -78,8 +102,25 @@ export default function EmailList({
                     borderBottom="1px solid"
                     borderColor="gray.100"
                     cursor="pointer"
-                    bg={selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : (isQueued ? 'orange.50' : 'white'))}
-                    _hover={{ bg: selectedEmailId === email.id ? 'blue.50' : (isProcessing ? 'purple.50' : (isQueued ? 'orange.50' : 'gray.50')) }}
+                    bg={
+                      selectedEmailId === email.id
+                        ? "blue.50"
+                        : isProcessing
+                        ? "purple.50"
+                        : isQueued
+                        ? "orange.50"
+                        : "white"
+                    }
+                    _hover={{
+                      bg:
+                        selectedEmailId === email.id
+                          ? "blue.50"
+                          : isProcessing
+                          ? "purple.50"
+                          : isQueued
+                          ? "orange.50"
+                          : "gray.50",
+                    }}
                     onClick={() => onEmailSelect(email.id)}
                     opacity={isProcessing || isQueued ? 0.8 : 1}
                   >
@@ -107,28 +148,30 @@ export default function EmailList({
                           >
                             <Clock size={14} color="#D69E2E" />
                           </Box>
-                        ) : (email.id in insightsByEmail) && (
-                          <Box
-                            bg={hasInsights ? "red.500" : "gray.300"}
-                            color={hasInsights ? "white" : "gray.600"}
-                            borderRadius="full"
-                            minW="18px"
-                            h="18px"
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="center"
-                            fontSize="xs"
-                            fontWeight="bold"
-                            flexShrink={0}
-                          >
-                            {insightCount}
-                          </Box>
+                        ) : (
+                          email.id in insightsByEmail && (
+                            <Box
+                              bg={hasInsights ? "red.500" : "gray.300"}
+                              color={hasInsights ? "white" : "gray.600"}
+                              borderRadius="full"
+                              minW="18px"
+                              h="18px"
+                              display="flex"
+                              alignItems="center"
+                              justifyContent="center"
+                              fontSize="xs"
+                              fontWeight="bold"
+                              flexShrink={0}
+                            >
+                              {insightCount}
+                            </Box>
+                          )
                         )}
-                        <Text 
-                          fontSize="sm" 
-                          fontWeight="medium" 
-                          color="gray.800" 
-                          noOfLines={1} 
+                        <Text
+                          fontSize="sm"
+                          fontWeight="medium"
+                          color="gray.800"
+                          noOfLines={1}
                           flex="1"
                           minW={0}
                           overflow="hidden"
@@ -138,18 +181,21 @@ export default function EmailList({
                         </Text>
                       </Flex>
                       <Flex align="center" gap={2} flexShrink={0}>
-                        {email.emailType === 'sent' && (
-                          <Badge 
-                            colorScheme="green" 
-                            size="sm"
-                          >
+                        {email.emailType === "sent" && (
+                          <Badge colorScheme="green" size="sm">
                             SENT
                           </Badge>
                         )}
                       </Flex>
                     </Flex>
                     <Flex justify="space-between" align="center">
-                      <Text fontSize="xs" color="gray.600" noOfLines={1} flex="1" mr={2}>
+                      <Text
+                        fontSize="xs"
+                        color="gray.600"
+                        noOfLines={1}
+                        flex="1"
+                        mr={2}
+                      >
                         {email.from}
                       </Text>
                       <Text fontSize="xs" color="gray.400">
@@ -165,4 +211,4 @@ export default function EmailList({
       </VStack>
     </Box>
   );
-} 
+}

@@ -112,21 +112,48 @@ user: |
   3. **Stronger evidence and reasoning quality**
   4. **More specific/detailed information**
 
-  ### STEP 4: CONTENT SYNTHESIS & DEDUPLICATION
-  **CRITICAL: MERGE REDUNDANT INSIGHTS AND PRIORITIZE**
+  ### STEP 4: CONTENT SYNTHESIS & STRUCTURED ATTRIBUTION
+  **CRITICAL: MERGE REDUNDANT INSIGHTS WITH EXPLICIT CONFIDENCE TRACKING**
   
   Write consolidated, factual statements that:
   - **MERGE similar insights** into comprehensive statements (e.g., multiple MyEquity insights → one consolidated MyEquity relationship)
   - **DEDUPLICATE redundant information** (don't repeat the same service multiple times)
+  - **DEDUPLICATE NAME VARIATIONS** (Dom/Dominic, Mike/Michael, etc. are often the same person)
   - **PRIORITIZE by importance** (paid services > free accounts, primary services > secondary mentions)
-  - Use the HIGHEST confidence language when merging similar insights
-  - Include temporal context from most recent insight
+  - **APPEND CONFIDENCE & DATE** to every factual statement using format: `(±XX% YYYY-MM-DD)`
+  - When merging insights, use the HIGHEST confidence score and MOST RECENT date
   - Never add implications, analysis, or inferred meaning beyond stated facts
   
+  ## CRITICAL: USER IDENTITY DEDUPLICATION
+  
+  **USER IDENTITY AWARENESS:**
+  - The user is {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
+  - **DO NOT treat the user as multiple people** if they appear under name variations
+  - Common variations: {{userInfo.firstName}}/{{userInfo.lastName}} may have nicknames, formal/informal versions
+  - **MERGE any insights about name variations of the user** - they are the SAME PERSON
+  
+  **NAME VARIATION PATTERNS TO MERGE:**
+  - Formal vs Informal: "Dominic Vinyard" + "Dom Vinyard" → SAME PERSON (the user)
+  - Nickname patterns: "Michael" + "Mike", "Robert" + "Rob", "Jennifer" + "Jen"
+  - Name order variations: "John Smith" + "Smith, John" → SAME PERSON
+  - Email matching: If email domains/patterns match user's email → likely the same person
+  
+  **WHEN TO MERGE NAMES:**
+  - Names with clear nickname relationship (Dom/Dominic, Mike/Michael)
+  - Same last name + similar first name + similar context
+  - Email addresses that match user's domain/pattern
+  - Same professional/personal context + name similarity
+  
+  **CONFIDENCE & DATE FORMAT:**
+  - Every statement ends with: `(±[confidence]% [extractedOn date])`
+  - Example: "Dom works at Dulu Ventures as a Partner (±95% 2025-01-01)"
+  - When merging multiple insights: use highest confidence + most recent date
+  - Round confidence to nearest 5% (e.g., 87% → ±85%, 92% → ±90%)
+  
   **EXAMPLES OF GOOD CONSOLIDATION:**
-  - Multiple insights about same service → One comprehensive insight about that service relationship
-  - Basic + premium tiers → Mention the higher tier
-  - Account + payment info → Combined service relationship with payment detail
+  - Multiple insights about same service → "User has MyEquity premium account with active trading (±90% 2024-12-15)"
+  - Basic + premium tiers → "User subscribes to Netflix Premium plan (±85% 2024-12-20)"
+  - Account + payment info → "User maintains Chase checking account with direct deposit setup (±95% 2025-01-01)"
   
   **FORBIDDEN**: Adding context about workflow benefits, productivity implications, strategic value, or any analysis beyond the bare facts.
 
@@ -312,7 +339,20 @@ user: |
   • Educational connections (classmates, professors)
   • Social or recreational group memberships
 
-  EXCLUDE: General team dynamics, communication preferences, emotional aspects, professional roles
+  **⚠️ RELATIONSHIP CONSERVATIVE LANGUAGE:**
+  - Use "contact with" rather than "relationship with" unless explicitly confirmed
+  - Avoid overstating relationship closeness or frequency
+  - Remember: Email appearance ≠ significant relationship
+  - Focus on what is objectively confirmed, not assumed
+
+  **🚨 CRITICAL: USER IDENTITY DEDUPLICATION FOR RELATIONSHIPS**
+  - **DO NOT list the user as their own relationship/contact**
+  - **MERGE name variations of the user** - "Dom Vinyard" + "Dominic Vinyard" = SAME PERSON (the user)
+  - **If someone's name closely matches the user's identity, verify it's actually a different person**
+  - **Common mistake:** Treating user's formal name vs nickname as separate relationships
+  - **Example:** User is "Dominic Vinyard" → Don't create separate entries for "Dom Vinyard"
+
+  EXCLUDE: General team dynamics, communication preferences, emotional aspects, professional roles, THE USER THEMSELVES
   WRITING STYLE: Group family first, then professional relationships, then personal connections.
   {{/if}}
   
@@ -363,21 +403,22 @@ user: |
   ## OUTPUT REQUIREMENTS:
 
   1. **Consolidation-first approach:** Merge similar insights, eliminate redundancy, prioritize by importance
-  2. **Preserve highest confidence:** When merging insights, use the highest confidence language available
-  3. **Temporal awareness:** Include "as of [date]" using the most recent date when merging
-  4. **Category purity:** Absolutely no content outside {{category}} scope
-  5. **Prioritized organization:** Most important/paid services first, secondary mentions after
-  6. **Professional tone:** Maintain factual, professional language
-  7. **Uncertainty acknowledgment:** If low confidence, acknowledge appropriately
+  2. **Explicit confidence attribution:** Every factual statement MUST end with `(±XX% YYYY-MM-DD)` format
+  3. **Confidence & date selection:** When merging insights, use highest confidence score + most recent date
+  4. **Confidence rounding:** Round to nearest 5% (87% → ±85%, 92% → ±90%)
+  5. **Category purity:** Absolutely no content outside {{category}} scope
+  6. **Prioritized organization:** Most important/paid services first, secondary mentions after
+  7. **Professional tone:** Maintain factual, professional language with explicit attribution
   8. **Conciseness:** Consolidate effectively, avoid repetition. Keep under 300 words.
 
   **If no valid {{category}} insights exist after quality filtering:** 
   Return: "No verified {{category}} information available at this time."
 
-  **Example quality filtering:**
+  **Example quality filtering & confidence attribution:**
   - Insight with weak reasoning + low confidence + old date = EXCLUDE
-  - Insight with strong evidence + high confidence + recent = INCLUDE
-  - Conflicting insights = Keep higher confidence + more recent
+  - Insight with strong evidence + high confidence + recent = INCLUDE: "Dom works at Dulu Ventures (±95% 2025-01-01)"
+  - Conflicting insights = Keep higher confidence + more recent: "Dom uses Cursor for development (±90% 2024-12-20)" vs. "Dom uses VS Code (±70% 2024-11-15)" → Keep Cursor
+  - Merged insights = Highest confidence + most recent date: Two MyEquity insights (±85% 2024-12-10) + (±90% 2024-12-15) = "Dom has MyEquity premium trading account (±90% 2024-12-15)"
 
   **FINAL REMINDER:** Do not add analysis, implications, strategic value, workflow benefits, or interpretation. State only the exact facts from insights.
 
