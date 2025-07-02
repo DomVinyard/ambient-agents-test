@@ -61,7 +61,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [accounts, personal, professional]
+                enum: [accounts, personal, professional, approach]
               description: "Newsletter insights: subscription (accounts) and topic interests (personal/professional)"
               maxItems: 3
               minItems: 1
@@ -93,6 +93,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - **Topic interests** (professional, personal, industry focus areas)
 - **Subscription relationships** (platforms, publications, content creators)
 - **Learning and development priorities** (areas they invest time in)
+- **Information consumption approach** (learning preferences, content engagement patterns)
 </extraction_focus>
 
 <inference_guidelines>
@@ -114,6 +115,11 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Newsletter frequency → Information consumption habits
 - Content depth → Learning style preferences
 - Topic diversity → Breadth of interests and curiosity
+
+**Learning Approach Signals:**
+- Technical vs general newsletters → Learning preference (hands-on vs theoretical)
+- Newsletter diversity → Information gathering style (broad vs focused)
+- Educational content choices → Learning methodology (structured vs exploratory)
 </inference_guidelines>
 
 {{>extraction-categories}}

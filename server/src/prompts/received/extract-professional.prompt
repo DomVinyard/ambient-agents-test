@@ -55,7 +55,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, relationships, communication, behavioral, goals]
+                enum: [basic, professional, relationships, communication, behavioral, goals, approach]
               maxItems: 3
               minItems: 1
             insight:
@@ -83,6 +83,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - **Professional skills and expertise** (technical abilities, industry knowledge)
 - **Work context** (team dynamics, business processes, industry involvement)
 - **Professional communication patterns** (how they interact in work settings)
+- **Work approach and methodology** (decision-making style, problem-solving approach, technology adoption)
 </extraction_focus>
 
 <inference_guidelines>
@@ -105,6 +106,12 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Industry topics → Professional domain knowledge
 - Project leadership → Management and coordination responsibilities
 - Business process involvement → Organizational role and influence
+
+**Work Approach Patterns:**
+- Meeting scheduling patterns → Planning style (detailed vs flexible)
+- Decision timelines → Decision-making approach (quick vs thorough)
+- Communication style → Professional interaction preferences (direct vs diplomatic)
+- Technology mentions → Tool adoption patterns (early adopter vs conservative)
 </inference_guidelines>
 
 <relationship_intelligence>

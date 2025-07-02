@@ -61,7 +61,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [accounts, behavioral, personal, basic]
+                enum: [accounts, behavioral, personal, basic, approach]
               maxItems: 3
               minItems: 1
             insight:
@@ -92,6 +92,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - **Geographic location** (where they live/work based on service areas)
 - **Lifestyle preferences** (service choices that indicate priorities and interests)
 - **Behavioral patterns** (how they engage with services and spending priorities)
+- **Service engagement approach** (decision-making style for subscriptions, technology adoption patterns)
 </extraction_focus>
 
 <inference_guidelines>
@@ -115,6 +116,12 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Eco-friendly services → Environmental consciousness
 - Fitness/wellness services → Health prioritization
 - Educational platforms → Learning investment patterns
+
+**Service Engagement Approach:**
+- Subscription timing → Decision-making patterns (early adopter vs careful evaluator)
+- Service tier choices → Value approach (premium vs basic, quality vs cost)
+- Account management style → Organization and planning preferences
+- Service switching patterns → Technology adoption and change tolerance
 </inference_guidelines>
 
 {{>extraction-categories}}

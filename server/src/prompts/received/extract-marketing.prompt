@@ -61,8 +61,8 @@ output:
               type: array
               items:
                 type: string
-                enum: [professional, behavioral, basic]
-              maxItems: 2
+                enum: [professional, behavioral, basic, approach]
+              maxItems: 3
               minItems: 1
             insight:
               type: string
@@ -92,6 +92,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - **Role targeting** (what job functions/levels marketers think they have)
 - **Business context** (company size, challenges, tools they might use)
 - **Professional interests** (what business areas they might be involved in)
+- **Professional approach signals** (decision-making authority, technology adoption patterns implied by targeting)
 </extraction_focus>
 
 <inference_guidelines>
@@ -120,6 +121,12 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Higher confidence for industry-specific tools/services
 - Lower confidence for generic business solutions
 - Consider if targeting seems accurate based on other professional signals
+
+**Professional Approach Inference:**
+- Executive-focused messaging → Decision-making authority and leadership approach
+- Technical tool marketing → Technology adoption style and tool preferences
+- Efficiency-focused messaging → Work methodology (systematic vs flexible)
+- Innovation vs stability messaging → Risk tolerance and change approach
 </inference_guidelines>
 
 <marketing_analysis>
