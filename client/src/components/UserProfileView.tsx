@@ -1,14 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, VStack, Text, Button, useToast } from '@chakra-ui/react';
-import { storageService } from '../services/storage.service';
+import { useToast } from '@chakra-ui/react';
+import axios from 'axios';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { profileService } from '../services/profile.service';
-import MasterProgressBar from './MasterProgressBar';
-import BeautifulMarkdownEditor from './BeautifulMarkdownEditor';
-import ProfileLoadingScreen from './ProfileLoadingScreen';
+import { storageService } from '../services/storage.service';
 import AnimatedProfileTransition from './AnimatedProfileTransition';
 import { PusherReceiver } from './PusherReceiver';
-import { getStatusMessage } from '../utils/getStatusMessage';
-import axios from 'axios';
 
 interface UserProfileViewProps {
   onLogout: () => void;
@@ -30,6 +26,7 @@ export default function UserProfileView({ onLogout, isFreshOAuth = false }: User
   };
   const [insightQueue, setInsightQueue] = useState<any[]>([]);
   const [hasShownInitialMessages, setHasShownInitialMessages] = useState(false);
+  const [fakeProgressFrom90, setFakeProgressFrom90] = useState(0); // Extra progress from 90% to make it feel smoother
   
   // Use refs to avoid closure capture in interval
   const insightQueueRef = useRef<any[]>([]);
@@ -67,13 +64,13 @@ export default function UserProfileView({ onLogout, isFreshOAuth = false }: User
       totalProgress = 80 + profilePercent;
     }
     
-    // Stage 4: Compile (90-100%) - quick
-    if (masterProgress.compileProgress) {
-      const compilePercent = (masterProgress.compileProgress.processed / masterProgress.compileProgress.total) * 10;
-      totalProgress = 90 + compilePercent;
+    // Stage 4: Completely take over with fake progress at 90%
+    if (totalProgress >= 90) {
+      // Always use fake progress once we hit 90%, ignore real compile progress
+      totalProgress = 90 + fakeProgressFrom90;
     }
     
-    return Math.round(Math.min(totalProgress, 100));
+    return Math.round(Math.min(totalProgress, 99));
   };
   
   // Progress tracking
@@ -185,6 +182,56 @@ export default function UserProfileView({ onLogout, isFreshOAuth = false }: User
       clearInterval(interval);
     };
   }, [isBuilding]); // Only depend on isBuilding, not masterProgress
+
+  // Effect 3: Handle smooth fake progress from 90% to 100%
+  useEffect(() => {
+    if (!isBuilding) {
+      setFakeProgressFrom90(0);
+      return;
+    }
+
+    const actualProgress = (() => {
+      let totalProgress = 0;
+      
+      if (masterProgress.fetchProgress) {
+        const fetchPercent = (masterProgress.fetchProgress.processed / masterProgress.fetchProgress.total) * 10;
+        totalProgress = fetchPercent;
+      }
+      
+      if (masterProgress.insightsProgress) {
+        const insightsPercent = (masterProgress.insightsProgress.processed / masterProgress.insightsProgress.total) * 70;
+        totalProgress = 10 + insightsPercent;
+      }
+      
+      if (masterProgress.profileProgress) {
+        const profilePercent = (masterProgress.profileProgress.processed / masterProgress.profileProgress.total) * 10;
+        totalProgress = 80 + profilePercent;
+      }
+      
+      return totalProgress;
+    })();
+
+    // Completely take over at 90% - start fake progress regardless of compile status
+    if (actualProgress >= 90 && fakeProgressFrom90 === 0) {
+      console.log('🎭 TAKING OVER AT 90% - starting fake progress');
+      setFakeProgressFrom90(1); // Start the fake progress
+    }
+
+    // Continue fake progress if we've started it
+    if (fakeProgressFrom90 > 0 && fakeProgressFrom90 < 10) {
+      console.log(`🎭 CONTINUING FAKE PROGRESS: currently at ${90 + fakeProgressFrom90}%`);
+      
+      const interval = setInterval(() => {
+        setFakeProgressFrom90(prev => {
+          const newFake = Math.min(prev + 1, 10); // Max 10% fake progress (90% + 10% = 100%)
+          console.log(`🎭 FAKE PROGRESS TICK: ${90 + newFake}%`);
+          return newFake;
+        });
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isBuilding, masterProgress, fakeProgressFrom90]);
 
   const checkExistingProfile = async () => {
     setIsLoading(true);

@@ -5,7 +5,6 @@ interface ProfileLoadingScreenProps {
   overallProgress: number;
   error?: string | null;
   onRetry?: () => void;
-  showMockIndicator?: boolean;
   onClick?: () => void;
   showCompletionMessage?: boolean;
   statusMessage?: string;
@@ -15,7 +14,6 @@ export default function ProfileLoadingScreen({
   overallProgress, 
   error, 
   onRetry, 
-  showMockIndicator = false,
   onClick,
   showCompletionMessage = false,
   statusMessage = "Checking your emails..."
@@ -100,11 +98,6 @@ export default function ProfileLoadingScreen({
               <Text color="green.600" fontWeight="medium" fontSize="sm">
                 ✨ Complete! Click anywhere to continue
               </Text>
-              {showMockIndicator && (
-                <Text color="gray.400" fontSize="xs">
-                  🧪 Mock Mode - Click to advance
-                </Text>
-              )}
             </VStack>
           )}
         </VStack>

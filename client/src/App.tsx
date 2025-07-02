@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, VStack, Text, Heading, HStack, Badge } from '@chakra-ui/react';
+import { Box, Button, VStack, Text, Heading } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import { Settings } from 'lucide-react';
 import AdminDashboard from './components/AdminDashboard';
 import UserProfileView from './components/UserProfileView';
-import MockFlow from './components/MockFlow';
+
 import SaunaAvatar from './components/SaunaAvatar';
 
 // Gmail icon component
@@ -324,94 +323,12 @@ function AdminRoute() {
 }
 
 function App() {
-  // Check for mock mode flag - but don't activate if we're in an OAuth callback
-  const [mockMode, setMockMode] = useState(() => {
-    // Don't activate mock mode if we're handling OAuth callback
-    const urlParams = new URLSearchParams(window.location.search);
-    const isOAuthCallback = urlParams.get('gmail') || urlParams.get('tokens');
-    
-    if (isOAuthCallback) {
-      return false;
-    }
-    
-    return localStorage.getItem('ambient-agents-mock-mode') === 'true';
-  });
-
-  // Add developer helpers
-  useEffect(() => {
-    // Make toggle function available globally for console access
-    (window as any).toggleMockMode = () => {
-      const newMode = !mockMode;
-      setMockMode(newMode);
-      localStorage.setItem('ambient-agents-mock-mode', newMode.toString());
-      console.log(`🧪 Mock Mode ${newMode ? 'ENABLED' : 'DISABLED'}`);
-    };
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🧪 Mock Mode Helpers:');
-      console.log('  - Click the "Mock Mode" button (bottom left)');
-      console.log('  - Or run: toggleMockMode() in console');
-      console.log(`  - Current state: ${mockMode ? 'ENABLED' : 'DISABLED'}`);
-    }
-  }, [mockMode]);
-
-  const toggleMockMode = () => {
-    const newMockMode = !mockMode;
-    setMockMode(newMockMode);
-    localStorage.setItem('ambient-agents-mock-mode', newMockMode.toString());
-  };
-
-  const exitMockMode = () => {
-    setMockMode(false);
-    localStorage.setItem('ambient-agents-mock-mode', 'false');
-  };
-
-  // If mock mode is enabled, show the mock flow instead
-  // But not if we're in an OAuth callback
-  const urlParams = new URLSearchParams(window.location.search);
-  const isOAuthCallback = urlParams.get('gmail') || urlParams.get('tokens');
-  
-  if (mockMode && !isOAuthCallback) {
-    return <MockFlow onExit={exitMockMode} />;
-  }
-
   return (
     <Router>
       <Routes>
         <Route path="/" element={<UserRoute />} />
         <Route path="/admin" element={<AdminRoute />} />
       </Routes>
-      
-      {/* Mock Mode Toggle - floating button (hide during OAuth) */}
-      {!isOAuthCallback && (
-        <HStack
-          position="fixed"
-          bottom={4}
-          left={4}
-          spacing={2}
-          zIndex={1000}
-        >
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={toggleMockMode}
-            leftIcon={<Settings size={14} />}
-            bg="whiteAlpha.900"
-            backdropFilter="blur(10px)"
-            border="1px solid"
-            borderColor="gray.200"
-            _hover={{ bg: 'gray.100' }}
-          >
-            Mock Mode
-          </Button>
-          
-          {mockMode && (
-            <Badge colorScheme="orange" variant="solid">
-              🧪 MOCK
-            </Badge>
-          )}
-        </HStack>
-      )}
     </Router>
   );
 }

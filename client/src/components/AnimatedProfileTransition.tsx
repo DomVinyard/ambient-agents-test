@@ -19,9 +19,6 @@ interface AnimatedProfileTransitionProps {
   
   // Animation state
   isComplete: boolean;
-  
-  // Optional mock mode indicator
-  showMockIndicator?: boolean;
 }
 
 export default function AnimatedProfileTransition({
@@ -33,8 +30,7 @@ export default function AnimatedProfileTransition({
   onContentChange,
   onConfirm,
   onLogout,
-  isComplete,
-  showMockIndicator = false
+  isComplete
 }: AnimatedProfileTransitionProps) {
   const [showProfile, setShowProfile] = useState(false);
 
@@ -182,7 +178,7 @@ export default function AnimatedProfileTransition({
                       borderColor="gray.200"
                       borderRadius="2px"
                       transform="translateX(-50%) rotate(45deg)"
-                      zIndex={1}
+                      zIndex={2}
                     />
                   </motion.div>
                 )}
