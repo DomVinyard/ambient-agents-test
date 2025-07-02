@@ -143,6 +143,8 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Industry-specific language reveals perceived professional context
 - Role-specific messaging reveals perceived authority/function
 - Company size targeting reveals business environment context
+
+**Focus on targeting intelligence: What does their choice to target this person reveal about their perceived professional role and industry context?**
 </marketing_analysis>
 
 {{>extraction-categories}}
