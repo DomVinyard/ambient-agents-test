@@ -129,7 +129,7 @@ user: |
   Create a comprehensive analysis formatted as follows:
 
   **EXECUTIVE SUMMARY**
-  - Brief overview of {{userInfo.firstName}}'s automation potential
+  - Brief overview of {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} automation potential
   - Top 3 highest-impact automation opportunities
   - Estimated time savings and life improvement potential
 
@@ -158,10 +158,10 @@ user: |
   
   **PRACTICALITY:** Focus on automations that are technically feasible with current tools and APIs
   
-  **PERSONALIZATION:** Tailor each automation to {{userInfo.firstName}}'s specific context, preferences, and constraints
+  **PERSONALIZATION:** Tailor each automation to {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} specific context, preferences, and constraints
   
   **ACTIONABILITY:** Provide enough detail that a developer could begin implementing these automations
   
   **VALUE-FOCUSED:** Prioritize automations that would have meaningful impact on quality of life or productivity
 
-  Analyze {{userInfo.firstName}}'s profile comprehensively and create a detailed automation opportunities report that would genuinely improve their daily life through intelligent background agents. 
+  Analyze {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} profile comprehensively and create a detailed automation opportunities report that would genuinely improve their daily life through intelligent background agents. 

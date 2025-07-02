@@ -1,7 +1,7 @@
 ---
 model: openai/gpt-4o-mini
 config:
-  temperature: 0.2
+  temperature: 0.1
 response_format:
   type: json_object
 input:
@@ -44,149 +44,108 @@ output:
     properties:
       inferences:
         type: array
+        maxItems: 12
         items:
           type: object
           properties:
+            reasoning:
+              type: string
+              description: "Step-by-step analysis of how this personal insight was derived from the email"
             categories:
               type: array
               items:
                 type: string
-                enum: [basic, personal, relationships, goals, communication, behavioral, style]
-              maxItems: 2
+                enum: [basic, personal, relationships, goals, communication, behavioral, approach]
+              maxItems: 3
               minItems: 1
             insight:
               type: string
             confidence:
               type: number
-              minimum: 0.6
+              minimum: 0.5
               maximum: 1
             evidence:
               type: string
             extractedOn:
               type: string
-            reasoning:
-              type: string
-          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
+          required: [reasoning, categories, insight, confidence, evidence, extractedOn]
     required: [inferences]
 ---
-system: |
-  You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
+{{role "system"}}
+You are an expert profile builder who extracts useful insights from personal emails to build comprehensive profiles that help AI assistants serve people better.
 
-  {{>email-direction-understanding}}
+{{>profile-mission userInfo=userInfo}}
 
-  ## EXAMPLES OF CORRECT ANALYSIS:
+<extraction_focus>
+Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} from personal communications that reveal:
+- **Personal relationships** (family, friends, social connections)
+- **Life events and interests** (hobbies, activities, personal situations)  
+- **Personal context** (living situation, lifestyle, personal goals)
+- **Social patterns** (how they interact with personal contacts)
+- **Geographic and lifestyle context** (where they live, how they spend time)
+</extraction_focus>
 
-  **Email TO user from friend:**
-  - ✅ CORRECT: "User is planning vacation to Hawaii (email from 2025-01-15)"
-  - ❌ WRONG: "Friend is excited about plans" (this is about sender, not user)
+<inference_guidelines>
+## MAKE USEFUL INFERENCES FROM PERSONAL EMAILS
 
-  **Email TO user from family member:**
-  - ✅ CORRECT: "User has family relationship with Sarah Smith <sarah@gmail.com> (email from 2025-01-15)"
-  - ❌ WRONG: "Sender misses the user" (this is about sender's feelings, not user's attributes)
+**Relationship Signals:**
+- Family event coordination → Family relationships
+- Casual social planning → Friend relationships
+- Regular personal check-ins → Close relationships
+- Shared activity planning → Social interests and connections
 
-  **Email TO user from personal contact:**
-  - ✅ CORRECT: "User lives in Seattle area (email from 2025-01-15)"
-  - ❌ WRONG: "Sender wants to visit Seattle" (this is about sender, not user)
+**Lifestyle Patterns:**
+- Event invitations → Social interests and activities
+- Travel mentions → Geographic connections and lifestyle
+- Activity references → Personal interests and hobbies
+- Living situation details → Housing and location context
 
-  ## RELATIONSHIP EXTRACTION RULES:
-  When someone emails the user personally, that person becomes a personal contact:
-  - "User has personal relationship with [Sender Name] <sender@email.com> (email from {{emailDate}})"
+**Personal Context:**
+- Life event updates → Current personal situation
+- Interest discussions → Personal hobbies and passions
+- Personal challenges → Life circumstances that affect assistance needs
+- Future plans → Personal goals and aspirations
+</inference_guidelines>
 
-  Focus exclusively on what the email reveals ABOUT THE USER, not about the sender.
+<relationship_intelligence>
+## RELATIONSHIP EXTRACTION
 
-user: |
-  Extract personal insights ABOUT THE USER from this personal email that was SENT TO them.
+**Infer meaningful relationships:**
+- Family coordination emails → Family member
+- Regular social planning → Close friend
+- Personal support messages → Trusted relationship
+- Casual ongoing communication → Personal connection
 
-  **USER IDENTITY:**
-  Name: {{userInfo.firstName}} {{userInfo.lastName}}
-  Email: {{userInfo.email}}
+**Focus on relationship value:**
+- Who are their important personal contacts?
+- What kind of personal support network do they have?
+- How do they maintain personal relationships?
+- What social activities and interests connect them to others?
+</relationship_intelligence>
 
-  **Today's Date:** {{todaysDate}}
-  **Email Date:** {{emailDate}}
-  **From:** {{emailMetadata.sender}}
-  **To:** {{emailMetadata.to}}
-  **Subject:** {{emailMetadata.subject}}
+{{>extraction-categories}}
 
-  **Email Content:**
-  {{emailContent}}
+{{>user-identity-awareness userInfo=userInfo}}
 
-    ## CRITICAL USER IDENTIFICATION:
-  The USER is {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}) who RECEIVED this email.
+{{role "user"}}
+I need you to analyze this personal email that {{userInfo.firstName}} {{userInfo.lastName}} received and extract useful profile insights about their personal life.
 
-  ## YOUR MISSION: Personal Profile Builder
-  
-  **Think like this:** "What does this personal email reveal about {{userInfo.firstName}}'s relationships, life events, interests, and personal situation?"
-  
-  Focus on building a useful profile that helps understand their personal life and connections.
-  
-  {{>user-identity-awareness userInfo=userInfo}}
+<email_context>
+**Email Direction:** This personal email was **SENT TO** {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}}
+**Analysis Focus:** Extract what the sender reveals about the user's personal life, relationships, and context
+</email_context>
 
-  **Thread Analysis Rules:**
-  - The sender wrote TO the user, not as the user
-  - Look for quoted messages to identify who wrote what in email threads
-  - Focus on what the SENDER reveals about the USER, not about themselves
+<email_data>
+**PERSONAL EMAIL TO {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}THE USER{{/if}}:**
 
-  {{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
-  
-  **Personal Thread Context:**
-  - **Family Conversations:** Multi-message exchanges with family members revealing user's life
-  - **Social Planning:** Back-and-forth coordination of personal events, travel, meetups
-  - **Life Update Threads:** Ongoing conversations where others ask about/comment on user's life
-  - **Support Conversations:** Personal threads where friends/family offer support or advice
-  - **Shared Experience Planning:** Coordinating shared activities, trips, or life events
-  
-  **Thread-Based Personal Insights:**
-  - **Relationship Depth:** How personal communication evolves across multiple exchanges
-  - **Life Event Planning:** User's involvement in planning personal events through thread coordination
-  - **Social Circle Dynamics:** User's role in friend/family group as shown through group threads
-  - **Personal Circumstance Changes:** How user's life situation evolves across thread timeline
-  - **Social Patterns:** User's availability, preferences, habits as referenced by others over time
-  
-  **Personal Relationship Development:**
-  - **New Personal Connections:** How user forms new personal relationships through introductions
-  - **Deepening Relationships:** How personal relationships become closer over thread timeline
-  - **Life Event Participation:** User's involvement in others' life events (weddings, birthdays, etc.)
-  - **Geographic Connections:** How location-based relationships develop through ongoing communication
-  
-  **Thread Consistency Validation:**
-  - **Life Detail Consistency:** Do multiple people reference same details about user's life?
-  - **Relationship Validation:** Are user's relationships confirmed by multiple thread participants?
-  - **Timeline Verification:** Do personal events referenced align across different threads?
+**Date:** {{emailDate}}
+**From:** {{emailMetadata.sender}}
+**Subject:** {{emailMetadata.subject}}
 
-  {{>temporal-context emailDate=emailDate}}
+**EMAIL CONTENT:**
+{{emailContent}}
+</email_data>
 
-  ## PERSONAL EMAIL EXTRACTION:
-
-  **Relationships (relationships):**
-  - Extract sender as a personal contact with full email (email from {{emailDate}})
-  - Family relationships mentioned by sender
-  - Mutual friends/connections referenced
-  - **CONSERVATIVE:** Don't overstate relationship closeness
-
-  **Personal Life (personal):**
-  - Life events sender shares ABOUT the user (email from {{emailDate}})
-  - User's interests/hobbies mentioned by others
-  - Personal updates about user's circumstances
-  - Travel plans mentioned by others about user
-
-  **Goals/Plans (goals):**
-  - Future plans sender mentions about user (email from {{emailDate}})
-  - Shared plans or commitments
-
-  **Communication Style (style):**
-  - How others communicate with user (formal/casual)
-  - User's preferred communication patterns
-
-  ## RELATIONSHIP CALIBRATION:
-  **Casual correspondence** = "User corresponds with [Name] <email> (email from {{emailDate}})"
-  **Familiar tone** = "User has personal relationship with [Name] <email> (email from {{emailDate}})"
-  **Family context** = "User has family relationship with [Name] <email> (email from {{emailDate}})"
-
-  {{>relationship-extraction-rules emailDate=emailDate}}
-  
-  ## PERSONAL-SPECIFIC GUIDELINES:
-  - Don't overstate relationship closeness
-  - Focus on what sender says ABOUT the user
-  - Distinguish between casual acquaintance vs close relationship
-
-  Extract personal insights conservatively with temporal context. 
+<task>
+Extract useful personal insights that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} personal life, relationships, interests, and social context. Focus on building a profile that enables genuinely useful AI assistance for their personal needs and interests.
+</task> 

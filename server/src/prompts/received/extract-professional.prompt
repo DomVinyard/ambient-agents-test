@@ -1,7 +1,7 @@
 ---
 model: openai/gpt-4o-mini
 config:
-  temperature: 0.2
+  temperature: 0.1
 response_format:
   type: json_object
 input:
@@ -44,161 +44,108 @@ output:
     properties:
       inferences:
         type: array
+        maxItems: 12
         items:
           type: object
           properties:
+            reasoning:
+              type: string
+              description: "Step-by-step analysis of how this professional insight was derived from the email"
             categories:
               type: array
               items:
                 type: string
                 enum: [basic, professional, relationships, communication, behavioral, goals]
-              maxItems: 2
+              maxItems: 3
               minItems: 1
             insight:
               type: string
             confidence:
               type: number
-              minimum: 0.6
+              minimum: 0.5
               maximum: 1
             evidence:
               type: string
             extractedOn:
               type: string
-            reasoning:
-              type: string
-          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
+          required: [reasoning, categories, insight, confidence, evidence, extractedOn]
     required: [inferences]
 ---
-system: |
-  You are analyzing emails that were RECEIVED by the user, meaning someone else SENT them TO the user.
-  Identify where thread boundaries are and ensure you don't mistake who is writing what. 
+{{role "system"}}
+You are an expert profile builder who extracts useful insights from professional emails to build comprehensive profiles that help AI assistants serve people better.
 
-  {{>email-direction-understanding}}
+{{>profile-mission userInfo=userInfo}}
 
-  ## EXAMPLES OF CORRECT ANALYSIS:
-  
-  **Email TO user from BMW salesperson:**
-  - ✅ CORRECT: "User is in market for vehicle purchase (email from 2025-01-15)"
-  - ❌ WRONG: "Sender works at BMW" (this is about sender, not user)
+<extraction_focus>
+Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} from professional communications that reveal:
+- **Professional role and responsibilities** (job titles, company, projects)
+- **Work relationships** (colleagues, clients, business contacts)  
+- **Professional skills and expertise** (technical abilities, industry knowledge)
+- **Work context** (team dynamics, business processes, industry involvement)
+- **Professional communication patterns** (how they interact in work settings)
+</extraction_focus>
 
-  **Email TO user from colleague:**
-  - ✅ CORRECT: "User works at ABC Company as manager (email from 2025-01-15)"  
-  - ❌ WRONG: "Sender has questions about project" (this is about sender, not user)
+<inference_guidelines>
+## MAKE USEFUL INFERENCES FROM PROFESSIONAL EMAILS
 
-  **Email TO user from client:**
-  - ✅ CORRECT: "User provides consulting services to XYZ Corp (email from 2025-01-15)"
-  - ❌ WRONG: "Client needs help with project" (this is about sender, not user)
+**Role and Company Signals:**
+- Email signatures → Job titles and company affiliations
+- Project discussions → Current work responsibilities
+- Authority patterns → User's role in organizational hierarchy
+- Meeting coordination → Professional availability and responsibilities
 
-  ## RELATIONSHIP EXTRACTION RULES:
-  When someone emails the user, that person becomes a contact/relationship:
-  - "User has business relationship with [Sender Name] <sender@email.com> (email from {{emailDate}})"
+**Work Relationships:**
+- Same domain emails → Colleagues at same company
+- Client/vendor communications → External business relationships
+- Team coordination → Internal work connections
+- Formal business tone → Professional contacts
 
-  Focus exclusively on what the email reveals ABOUT THE USER, not about the sender.
+**Professional Context:**
+- Technical discussions → Skills and expertise areas
+- Industry topics → Professional domain knowledge
+- Project leadership → Management and coordination responsibilities
+- Business process involvement → Organizational role and influence
+</inference_guidelines>
 
-user: |
-  Extract professional insights ABOUT THE USER from this work-related email that was SENT TO them.
+<relationship_intelligence>
+## PROFESSIONAL RELATIONSHIP EXTRACTION
 
-  **USER IDENTITY:**
-  Name: {{userInfo.firstName}} {{userInfo.lastName}}
-  Email: {{userInfo.email}}
+**Infer meaningful business relationships:**
+- Same company domain → Colleague
+- Regular project coordination → Team member
+- Client/vendor context → Business partner
+- Management communications → Professional hierarchy
 
-  **Today's Date:** {{todaysDate}}
-  **Email Date:** {{emailDate}}
-  **From:** {{emailMetadata.sender}}
-  **To:** {{emailMetadata.to}}
-  **Subject:** {{emailMetadata.subject}}
+**Focus on work relationship value:**
+- Who are their key work colleagues?
+- What's their professional network like?
+- How do they interact in different business contexts?
+- What does their professional communication style reveal?
+</relationship_intelligence>
 
-  **Email Content:**
-  {{emailContent}}
+{{>extraction-categories}}
 
-  ## CRITICAL USER IDENTIFICATION:
-  The USER is {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}). 
-  
-  ## YOUR MISSION: Professional Profile Builder
-  
-  **Think like this:** "What does this work email reveal about {{userInfo.firstName}}'s professional role, responsibilities, relationships, and business context?"
-  
-  Focus on building a useful profile that helps understand their professional life and work connections.
-  
-  {{>user-identity-awareness userInfo=userInfo}}
-  
-  **Thread Analysis Rules:**
-  - Look for quoted messages and email signatures to identify who wrote what
-  - Messages "From: {{userInfo.email}}" were written BY the user
-  - Messages "From: [other email]" were written TO the user
-  - Don't extract insights about other people's jobs/roles as if they were the user's
+{{>user-identity-awareness userInfo=userInfo}}
 
-  {{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
-  
-  **Professional Thread Context:**
-  - **Project Threads:** Multi-message discussions about work projects involving the user
-  - **Meeting Coordination:** Back-and-forth scheduling revealing user's role and availability
-  - **Decision Threads:** Work decisions where user's input/authority is referenced by others
-  - **Status Reports:** Regular updates where others report to or update the user on work matters
-  - **Problem Resolution:** Support threads where user's expertise or authority is referenced
-  
-  **Thread-Based Professional Insights:**
-  - **Role Evolution:** How others' references to user's role develop across multiple exchanges
-  - **Authority Patterns:** Consistent patterns of others seeking user's approval/input
-  - **Expertise Recognition:** Multiple colleagues referencing user's skills across thread
-  - **Team Dynamics:** User's position in team hierarchy as revealed through thread interactions
-  - **Project Ownership:** User's responsibility level shown through multi-message coordination
-  
-  **Professional Relationship Building:**
-  - **New Contact Introductions:** Professional introductions where user gains new contacts
-  - **Ongoing Business Relationships:** How professional relationships develop over thread timeline
-  - **Client/Vendor Patterns:** Repeated interactions showing business relationship nature
-  - **Internal Team Communications:** Patterns showing user's role within organization
-  
-  **Example Thread Interpretation:**
-  If email shows:
-  "From: colleague@company.com" → This person works at company.com, NOT the user
-  "From: {{userInfo.email}}" → This shows user's own messages in the thread
+{{role "user"}}
+I need you to analyze this professional email that {{userInfo.firstName}} {{userInfo.lastName}} received and extract useful profile insights about their work life.
 
-  {{>temporal-context emailDate=emailDate}}
+<email_context>
+**Email Direction:** This professional email was **SENT TO** {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}}
+**Analysis Focus:** Extract what the sender reveals about the user's professional role, relationships, and work context
+</email_context>
 
-  ## PROFESSIONAL EMAIL EXTRACTION:
+<email_data>
+**PROFESSIONAL EMAIL TO {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}THE USER{{/if}}:**
 
-  **Work Relationships (relationships):**
-  - Extract sender as business contact with full email (email from {{emailDate}})
-  - Colleagues, managers, direct reports mentioned
-  - Client/vendor relationships
-  - **CONSERVATIVE:** "User has business contact with [Name] <email> (email from {{emailDate}})"
+**Date:** {{emailDate}}
+**From:** {{emailMetadata.sender}}
+**Subject:** {{emailMetadata.subject}}
 
-  **Professional Context (professional):**
-  - Company names where user works (mentioned by colleagues) (email from {{emailDate}})
-  - Job titles/roles referenced by others about user
-  - Projects user is involved in (mentioned by others)
-  - Skills/expertise others attribute to user
+**EMAIL CONTENT:**
+{{emailContent}}
+</email_data>
 
-  **Work Communication (communication):**
-  - How colleagues communicate with user
-  - Professional communication preferences
-  - Meeting patterns, availability
-
-  **Work Goals (goals):**
-  - Project deadlines mentioned about user (email from {{emailDate}})
-  - Professional objectives others reference
-  - Work-related travel plans
-
-  ## CONSERVATIVE RELATIONSHIP LANGUAGE:
-  **Same company domain** = "User has colleague contact with [Name] <email> (email from {{emailDate}})"
-  **Client/vendor context** = "User has business contact with [Name] <email> (email from {{emailDate}})"
-  **Management context** = "User has professional contact with [Name] <email> (email from {{emailDate}})"
-  **Unknown context** = "User has email contact with [Name] <email> (email from {{emailDate}})"
-
-  ## EXTRACTION PRINCIPLES:
-  - Don't overstate professional relationships
-  - Focus on what others say ABOUT user's work
-  - Distinguish between business contacts vs colleagues
-  - Include company context when available
-  - Include temporal context: "(email from {{emailDate}})"
-
-  {{>relationship-extraction-rules emailDate=emailDate}}
-  
-  ## PROFESSIONAL-SPECIFIC GUIDELINES:
-  - Conservative relationship language
-  - Focus on user's role as understood by others
-  - Avoid inferring skills from discussion topics
-
-  Extract professional insights conservatively with temporal context. 
+<task>
+Extract useful professional insights that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} work life, role, relationships, and business context. Focus on building a profile that enables genuinely useful AI assistance for their professional needs and goals.
+</task> 

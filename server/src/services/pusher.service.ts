@@ -13,12 +13,6 @@ class PusherService {
         const secret = process.env.PUSHER_SECRET;
         const cluster = process.env.PUSHER_CLUSTER;
 
-        console.log('Pusher Environment Variables:');
-        console.log('PUSHER_APP_ID:', appId ? 'Found' : 'Missing');
-        console.log('PUSHER_KEY:', key ? 'Found' : 'Missing');
-        console.log('PUSHER_SECRET:', secret ? 'Found' : 'Missing');
-        console.log('PUSHER_CLUSTER:', cluster || 'Missing');
-
         if (!appId || !key || !secret || !cluster) {
             console.error('⚠️  WARNING: One or more Pusher environment variables are missing!');
             console.error('   Required: PUSHER_APP_ID, PUSHER_KEY, PUSHER_SECRET, PUSHER_CLUSTER');

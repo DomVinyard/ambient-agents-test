@@ -138,7 +138,6 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
     const recentEmails = emails;
     
     // Format emails for the frontend without classification (classification moved to extract-insights stage)
-    console.log(`📧 Formatting ${recentEmails.length} emails for frontend...`);
     const formattedEmails = recentEmails.map((emailObj) => {
       const headers = emailObj.payload?.headers || [];
       const internalDate = emailObj.internalDate ? parseInt(emailObj.internalDate) : Date.now();
@@ -159,8 +158,6 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
       };
     });
     
-    console.log(`✅ Formatted ${formattedEmails.length} emails (classification will happen during insight extraction)`);
-
      // Deduplicate by thread - keep only the most recent email from each thread
      const threadMap = new Map();
      formattedEmails.forEach(email => {
@@ -199,8 +196,6 @@ app.post('/api/gmail/fetch-emails', async (req, res) => {
 app.post('/api/gmail/extract-insights', async (req, res) => {
   const { tokens, emailId, emailData, userInfo } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Extracting insights for email ${emailId}, session: ${sessionId}`);
-
   if (!tokens || !emailId || !emailData) {
     return res.status(400).json({ error: 'Missing tokens, emailId, or emailData' });
   }
@@ -257,7 +252,6 @@ app.post('/api/gmail/extract-insights', async (req, res) => {
 app.post('/api/ai/blend-profile', async (req, res) => {
   const { tokens, category, newInsights, existingContent, userInfo } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Blending profile for category: ${category}, session: ${sessionId}`);
 
   if (!tokens || !category || !newInsights || !userInfo) {
     return res.status(400).json({ error: 'Missing required parameters' });
@@ -294,8 +288,6 @@ app.post('/api/ai/blend-profile', async (req, res) => {
 app.post('/api/ai/compile-profile', async (req, res) => {
   const { tokens, profileFiles, userInfo } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Compiling profile for session: ${sessionId}, files: ${Object.keys(profileFiles).join(', ')}`);
-
   if (!tokens || !profileFiles || !userInfo) {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
@@ -329,8 +321,6 @@ app.post('/api/ai/compile-profile', async (req, res) => {
 app.post('/api/ai/analyze-automation', async (req, res) => {
   const { tokens, profileFiles, userInfo } = req.body;
   const sessionId = getSessionId(req);
-  console.log(`Analyzing automation opportunities for session: ${sessionId}, files: ${Object.keys(profileFiles).join(', ')}`);
-
   if (!tokens || !profileFiles || !userInfo) {
     return res.status(400).json({ error: 'Missing required parameters' });
   }

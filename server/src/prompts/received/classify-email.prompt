@@ -33,24 +33,34 @@ input:
             type: string
             description: "Recipients in To field"
         required: [subject, sender, senderDomain]
-    required: [emailContent, emailDate, todaysDate, emailMetadata]
+      userInfo:
+        type: object
+        properties:
+          firstName:
+            type: string
+          lastName:
+            type: string
+          email:
+            type: string
+        required: [firstName, lastName, email]
+    required: [emailContent, emailDate, todaysDate, emailMetadata, userInfo]
 output:
   schema:
     type: object
     properties:
-      emailType:
-        type: string
-        enum: ["newsletter", "service", "personal", "professional"]
-        description: "The classified type of email"
-      confidence:
-        type: number
-        minimum: 0.5
-        maximum: 1.0
-        description: "Confidence in the classification"
       reasoning:
         type: string
-        description: "Brief explanation for the classification decision"
-    required: [emailType, confidence, reasoning]
+        description: "Step-by-step analysis of the email signals and why they point to a specific category"
+      classification:
+        type: string
+        enum: ["newsletter", "service", "marketing", "personal", "professional"]
+        description: "The most appropriate category for this email"
+      confidence:
+        type: number
+        minimum: 0.6
+        maximum: 1.0
+        description: "Confidence in the classification decision"
+    required: [reasoning, classification, confidence]
 ---
 {{role "system"}}
 You are an expert email classifier who categorizes emails to help determine the best extraction approach for profile building.
@@ -92,6 +102,17 @@ I need you to classify this email that {{userInfo.firstName}} {{userInfo.lastNam
   
   **Examples:** Bank statements, utility bills, booking confirmations, account alerts, receipts
 
+  ### **MARKETING** - Sales Outreach & Lead Generation
+  **Signals:**
+  - Promotional tone with personal language to build rapport
+  - Offering services, software, or business solutions
+  - Uses "helping" language but selling products/services
+  - Targets professional pain points or business challenges
+  - Cold outreach from companies user doesn't have established relationship with
+  - CTA for demos, trials, consultations, or sales calls
+  
+  **Examples:** Software sales, business service offers, lead generation, cold outreach with personal tone
+
   ### **PERSONAL** - Friends, Family, Personal Contacts
   **Signals:**
   - Personal email domains (gmail.com, yahoo.com, etc.)
@@ -111,7 +132,7 @@ I need you to classify this email that {{userInfo.firstName}} {{userInfo.lastNam
   - Job titles, company names mentioned
   - Business vocabulary and formality
   
-  **Examples:** Work emails, business introductions, professional networking, client communications
+  **Examples:** Colleague communications, client work, business partnerships, internal company emails
 
   ## CLASSIFICATION PROCESS:
 

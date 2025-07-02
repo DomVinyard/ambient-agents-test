@@ -1,13 +1,29 @@
 <relationship_extraction_rules>
-## RELATIONSHIP EXTRACTION RULES:
-- **ALWAYS include full email addresses:** "Name <email@domain.com>" NOT just "Name"
-- **Include temporal context:** "(email from {{emailDate}})"
-- **Conservative language:** Don't overstate relationship closeness or frequency
-- **Full contact information:** For any people mentioned, include both name AND email address
-- **Example:** "Robert Johnson <robert.johnson@company.com>" NOT just "Robert"
+## MEANINGFUL RELATIONSHIP EXTRACTION:
 
-**CRITICAL: For relationships, ALWAYS include email addresses from headers:**
-- Extract sender/recipients with FULL contact info from email headers
-- If no email available, provide context: "Robert (mentioned in discussion)"
-- NEVER extract just first names without contact details
+**WHAT QUALIFIES AS A RELATIONSHIP:**
+- **Ongoing personal connections:** Family, friends, colleagues you work WITH
+- **Meaningful professional contacts:** People you collaborate with, report to, or work closely with
+- **Established relationships:** People who know you personally or professionally (not just your inquiry)
+
+**NOT RELATIONSHIPS - Don't Extract:**
+- **Service providers responding to inquiries:** Car salespeople, customer service reps
+- **Transactional contacts:** People just fulfilling requests, handling transactions
+- **One-off responders:** Random people replying to your outreach
+- **Newsletter/marketing senders:** Unless you have a personal connection
+
+**MEANINGFUL RELATIONSHIP INDICATORS:**
+Look for these patterns that show genuine human connections:
+- **Ongoing collaboration:** Working together on projects, regular coordination, shared objectives
+- **Personal familiarity:** "Great to see you", inside references, casual tone, shared experiences  
+- **Thread continuity:** Multiple exchanges showing established communication patterns
+- **Mutual knowledge:** References to each other's life, work, or circumstances
+- **Social connection language:** Meeting up, catching up, personal updates, relationship maintenance
+
+**FOCUS:** Extract relationships where the person actually knows and interacts with the user as an individual, not just as a customer or inquiry.
+
+**FORMAT FOR ACTUAL RELATIONSHIPS:**
+- Include full email: "Sarah Chen <s.chen@company.com>"
+- Include temporal context: "(email from {{emailDate}})"  
+- Use accurate relationship language: "colleague" vs "friend" vs "family"
 </relationship_extraction_rules> 

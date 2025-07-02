@@ -55,7 +55,7 @@ input:
     required: [insights, userInfo, todaysDate]
 ---
 user: |
-  You are analyzing a BATCH of insights about {{userInfo.firstName}} to find the most PROFILE-WORTHY discovery.
+  You are analyzing a BATCH of insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} to find the most PROFILE-WORTHY discovery.
 
   **Today's Date:** {{todaysDate}}
 
@@ -68,35 +68,30 @@ user: |
 
   ## PROFILE-FOCUSED SELECTION:
 
-  **PRIORITIZE insights that reveal WHO {{userInfo.firstName}} IS:**
-  ✅ **Identity/Role:** Job title, profession, company ("You're a developer", "You work at Google")
-  ✅ **Location/Base:** Where they live/work ("You're based in London", "You live in Seattle") 
-  ✅ **Lifestyle/Interests:** Hobbies, passions, habits ("You're into fitness", "You travel frequently")
-  ✅ **Personal Characteristics:** Family, life stage, behaviors ("You have kids", "You're health-conscious")
-  ✅ **Professional Identity:** Skills, expertise, industry ("You're in tech", "You do design")
+  **FOCUS ON IDENTITY-REVEALING INSIGHTS:**
+  Look for insights that reveal WHO {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} IS as a person:
+  
+  **Core Identity Markers:**
+  - **Professional identity:** Job titles, company, industry, expertise ("You're a developer", "You work at Google")
+  - **Geographic identity:** Where they live/work ("You're based in London", "You live in Seattle")
+  - **Lifestyle identity:** Hobbies, passions, habits ("You're into fitness", "You travel frequently")  
+  - **Personal characteristics:** Family, life stage, behaviors ("You have kids", "You're health-conscious")
+  - **Skills and expertise:** What they're known for professionally ("You do design", "You're in tech")
 
-  **SKIP these types:**
-  ❌ **Service accounts** ("You have Netflix", "You use Gmail") - not identity-revealing
-  ❌ **Temporary activities** ("You're looking at cars", "You got mail") - not profile-worthy
-  ❌ **Payment details** ("Your card expires", "You pay $50") - not about who they are
+  **MOST VALUABLE:** Insights that would help an AI assistant understand this person's core identity and context.
 
   ## OUTPUT FORMAT:
   Generate a SHORT, direct message (3-8 words) that states something meaningful about WHO they are:
 
-  **Good examples:**
-  - "Ah, ok, you're a [occupation]"
-  - "Cool, you live in [location]" 
-  - "Interesting, I see you're really into [topic]"
-  - "It seems you have [subject]"
-  - "Great, you're [Characteristic]"
-  - "OK, you probably work in [industry]"
-  - "You previously [previous fact]"
-  - "You once drove a [car make]"
+  **Effective status message patterns:**
+  - "You're a [occupation]" - Professional identity
+  - "You live in [location]" - Geographic context
+  - "You're really into [hobby/interest]" - Personal passion
+  - "You have [family/characteristic]" - Personal trait
+  - "You work in [industry]" - Professional context
+  - "You [defining action/behavior]" - Characteristic behavior
 
-  **Bad examples:**
-  - "Ah Cool, you have a Royal Mail account"
-  - "I see you're tracking flight prices"
-  - "You got an email from GitHub"
+  **GOAL:** Create a short message that helps establish meaningful context about who this person is.
 
   ## TEMPORAL PRIORITIZATION:
   When multiple insights are available, prefer:
@@ -112,10 +107,4 @@ user: |
   4. **Select** the most profile-worthy insight
   5. **Generate** a short status message about that insight
 
-  Pick the most IDENTITY-REVEALING insight and return a status message as JSON:
-
-  ```json
-  {
-    "message": "You're a software engineer"
-  }
-  ``` 
+  Pick the most IDENTITY-REVEALING insight and return a short status message about that person's core identity. 

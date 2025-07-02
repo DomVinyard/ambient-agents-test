@@ -71,7 +71,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   useEffect(() => {
     const loadStoredData = async () => {
       try {
-        console.log("Loading stored data...");
         const [storedEmails, storedUserInfo, storedInsights] =
           await Promise.all([
             storageService.getEmails(),
@@ -80,21 +79,14 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           ]);
 
         if (storedEmails.length > 0) {
-          console.log(`Loaded ${storedEmails.length} emails from storage`);
           setEmails(storedEmails);
         }
 
         if (storedUserInfo) {
-          console.log("Loaded user info from storage");
           setUserInfo(storedUserInfo);
         }
 
         if (Object.keys(storedInsights).length > 0) {
-          console.log(
-            `Loaded insights for ${
-              Object.keys(storedInsights).length
-            } emails from storage`
-          );
           setInsightsByEmail(storedInsights);
         }
       } catch (error) {
@@ -206,7 +198,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       setInsightsByEmail({});
 
       // Store emails in IndexedDB and clear insights
-      console.log(`Storing ${newEmails.length} emails in IndexedDB...`);
       await Promise.all([
         storageService.setEmails(newEmails),
         storageService.setUserInfo(response.data.userInfo),
@@ -273,13 +264,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const newInsights = response.data.insights;
       const classification = response.data.classification;
 
-      console.log("🔍 Extract insights response:", {
-        insights: newInsights?.length || 0,
-        classification,
-        selectedEmail: !!selectedEmail,
-        selectedEmailId,
-      });
-
       // Update insights for this specific email
       const updatedInsightsByEmail = {
         ...insightsByEmail,
@@ -290,7 +274,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
       // Update email with classification data if available
       if (classification && selectedEmail) {
-        console.log("✅ Updating email with classification:", classification);
         const updatedEmails = emails.map((email) =>
           email.id === selectedEmailId ? { ...email, classification } : email
         );
@@ -298,13 +281,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
         // Store updated emails in IndexedDB
         await storageService.setEmails(updatedEmails);
-      } else {
-        console.log("❌ Not updating classification:", {
-          hasClassification: !!classification,
-          hasSelectedEmail: !!selectedEmail,
-          classification,
-          selectedEmailId,
-        });
       }
 
       // Store insights in IndexedDB
@@ -342,10 +318,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       return;
     }
 
-    console.log(
-      `🚀 Starting profile building with ${currentEmails.length} emails. Auto-clearing existing insights.`
-    );
-
     // Always clear insights when building profile to ensure fresh start
     setInsightsByEmail({});
     await storageService.setInsights({});
@@ -363,10 +335,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const tokens = getAuthTokens();
 
       // Step 1: Extract insights from all emails with rate limiting
-      console.log(
-        `Starting to process ${currentEmails.length} emails with AI rate limiting (max 10 concurrent)`
-      );
-
       let processedCount = 0;
       let currentErrorCount = 0;
 
@@ -381,12 +349,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           setProcessingEmailIds((prev) => new Set([...prev, email.id]));
 
           try {
-            console.log(
-              `Processing email ${index + 1}/${
-                currentEmails.length
-              }: ${email.subject.substring(0, 50)}...`
-            );
-
             const response = await axios.post(
               "http://localhost:3001/api/gmail/extract-insights",
               {
@@ -408,11 +370,9 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 [email.id]: insights,
               };
               // Store in IndexedDB asynchronously (don't block)
-              storageService
-                .setInsights(updated)
-                .catch((error) =>
-                  console.error("Failed to store insights:", error)
-                );
+              storageService.setInsights(updated).catch(() => {
+                // Silently handle storage errors
+              });
               return updated;
             });
 
@@ -425,11 +385,9 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                     : prevEmail
                 );
                 // Store updated emails in IndexedDB asynchronously
-                storageService
-                  .setEmails(updatedEmails)
-                  .catch((error) =>
-                    console.error("Failed to store updated emails:", error)
-                  );
+                storageService.setEmails(updatedEmails).catch(() => {
+                  // Silently handle storage errors
+                });
                 return updatedEmails;
               });
             }
@@ -567,9 +525,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const totalCategories = applyResults.length;
 
       // Step 4: Auto-compile profile files
-      console.log(
-        `📊 Profile generation complete. ${successfulCategories}/${totalCategories} categories successful. Starting compilation...`
-      );
       if (successfulCategories > 0) {
         // Update master progress for compilation stage (and mark profile generation as complete)
         setMasterProgress((prev) => ({
@@ -581,12 +536,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
         try {
           // Use the generated profile files from this run
           const profileFiles = generatedProfileFiles;
-          console.log(
-            `🔧 Starting compilation with ${
-              Object.keys(profileFiles).length
-            } profile files:`,
-            Object.keys(profileFiles)
-          );
 
           if (Object.keys(profileFiles).length > 0) {
             // Run both compilation tasks in parallel
@@ -617,12 +566,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
               ...prev,
               compileProgress: { processed: 2, total: 2 },
             }));
-
-            console.log(
-              `✅ Profile compilation complete! Generated ${
-                Object.keys(profileFiles).length
-              } category files plus full.md and automation.md`
-            );
           }
         } catch (error) {
           console.error("Error during auto-compilation:", error);

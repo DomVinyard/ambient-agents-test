@@ -10,22 +10,26 @@ input:
     properties:
       profileFiles:
         type: object
-        description: "Map of filename to profile content"
+        description: "Map of filename to profile content for all profile categories"
         additionalProperties:
           type: string
       userInfo:
         type: object
+        description: "Basic user information for context and identity awareness"
         properties:
           firstName: 
             type: string
+            description: "User's first name"
           lastName: 
             type: string
+            description: "User's last name"
           email: 
             type: string
+            description: "User's primary email address"
         required: [firstName, lastName, email]
       todaysDate:
         type: string
-        description: "Today's date in YYYY-MM-DD format"
+        description: "Today's date in YYYY-MM-DD format for temporal context"
     required: [profileFiles, userInfo, todaysDate]
 output:
   schema:
@@ -33,93 +37,89 @@ output:
     properties:
       content:
         type: string
-        description: "The comprehensive compiled profile combining all sections"
+        description: "The comprehensive compiled profile optimized for LLM consumption as a flowing narrative"
     required: [content]
 ---
-user: |
-  You are an expert profile compiler creating a comprehensive, cohesive profile document from multiple specialized sections.
+{{role "system"}}
+You are an expert profile compiler creating an LLM-optimized assistant manual for {{userInfo.firstName}} {{userInfo.lastName}}.
 
-  **Today's Date:** {{todaysDate}}
-  **User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
+<mission>
+Create a flowing, prioritized narrative that helps an LLM understand how to communicate with and assist this person effectively. Structure information by confidence and importance, with essential details first and less certain insights later.
+</mission>
 
-  **Available Profile Sections:**
-  {{#each profileFiles}}
-  **{{@key}}:**
-  {{this}}
+<prioritization_framework>
+**TIER 1 - ESSENTIAL IDENTITY (Highest Confidence)**
+Core identity facts that define who this person is and how they operate:
+- Basic identity and contact patterns
+- Primary professional role and current work context
+- Communication style and preferences
+- Key tools and platforms they actively use
 
-  {{/each}}
+**TIER 2 - OPERATIONAL CONTEXT (High Confidence)**
+Current life context that shapes daily decisions and needs:
+- Active relationships and professional connections
+- Current projects and priorities
+- Established patterns and habits
+- Verified service relationships and accounts
 
-  ## COMPILATION OBJECTIVES:
+**TIER 3 - CONTEXTUAL INSIGHTS (Medium Confidence)**
+Supporting context that adds depth and nuance:
+- Personal interests and lifestyle patterns
+- Goals and aspirations
+- Preferences and tendencies
+- Social and family dynamics
 
-  ### PRIMARY GOAL
-  Create an AI assistant manual for {{userInfo.firstName}} {{userInfo.lastName}} - a practical profile that helps an LLM understand how to communicate with, assist, and be genuinely useful to this person.
+**TIER 4 - EMERGING PATTERNS (Lower Confidence)**
+Recent observations that may indicate developing patterns:
+- New behaviors or changing preferences
+- Experimental tool usage
+- Developing relationships
+- Tentative plans or considerations
+</prioritization_framework>
 
-  ### COMPILATION PRINCIPLES:
+<compilation_focus>
+**AUTHENTIC OPERATION:** How they actually think, communicate, and make decisions in practice
 
-  **1. OPERATIONAL FOCUS**
-  - How does this person think and make decisions?
-  - What's their communication style and what do they respond to?
-  - What tools, workflows, and approaches do they use?
-  - What are their current priorities and challenges?
+**CURRENT REALITY:** What's happening in their life right now that affects their needs and priorities
 
-  **2. PRACTICAL ASSISTANCE CONTEXT**
-  - What kind of help do they typically need?
-  - How do they prefer to receive information?
-  - What are their specific preferences, habits, and patterns?
-  - What context would help an AI be more useful?
+**ASSISTANCE VALUE:** What context enables genuinely useful AI support rather than generic responses
 
-  **3. AUTHENTIC PERSONALITY**
-  - How do they actually talk and express themselves?
-  - What are their quirks, preferences, and distinctive traits?
-  - How do they interact with different types of people?
-  - What motivates them and how do they approach problems?
+**SPECIFIC EVIDENCE:** Concrete details, actual tools, real names, and verifiable patterns over generalizations
+</compilation_focus>
 
-  **4. CURRENT LIFE CONTEXT**
-  - What's happening in their life right now?
-  - What are they working on or focused on?
-  - What relationships and dynamics are important?
-  - What challenges or goals are they navigating?
+<narrative_structure>
+Create a unified, flowing narrative (not sections) that naturally progresses from most important to least certain information. Each sentence should add specific, actionable context that helps an LLM interact more effectively.
 
-  ## COMPILATION STRUCTURE:
+**CONFIDENCE INTEGRATION:** Weave confidence levels naturally into the narrative flow rather than explicit attribution. Present high-confidence facts assertively and lower-confidence insights with appropriate qualifying language.
 
-  **COMMUNICATION & THINKING STYLE:** How they communicate, make decisions, and prefer to work
-  
-  **CURRENT PROFESSIONAL CONTEXT:** What they're working on now and how they approach their work
-  
-  **TOOLS & PREFERENCES:** Specific services, tools, brands, and approaches they use or prefer
-  
-  **PERSONAL CONTEXT & RELATIONSHIPS:** Key relationships, life situation, and personal interests that provide context
-  
-  **ASSISTANCE PREFERENCES:** How they like to be helped and what kind of support is most useful
+**RELATIONSHIP TO INSIGHTS:** Draw connections between different aspects of their life to create a coherent understanding of their operating patterns and assistance needs.
 
-  **LENGTH TARGET:** 4-6 detailed paragraphs that provide rich context (~400-600 words)
+**LENGTH TARGET:** 400-600 words in flowing paragraph format
+</narrative_structure>
 
-  ## QUALITY STANDARDS:
+<compilation_principles>
+**START STRONG:** Lead with the most important, certain facts about identity, role, and communication style
 
-  **PRACTICAL UTILITY:** An LLM reading this should understand how to interact with and assist this person effectively
-  
-  **SPECIFIC DETAILS:** Include concrete examples, specific tools, actual names, and real context rather than generalities
-  
-  **CURRENT RELEVANCE:** Focus on what's happening now and what matters most in their current life situation
-  
-  **AUTHENTIC VOICE:** Capture their actual communication style and personality, not a sanitized professional version
-  
-  **ACTIONABLE CONTEXT:** Provide information that helps an AI understand preferences, decision-making, and assistance needs
+**BUILD CONTEXT:** Add operational details about tools, relationships, and current priorities
 
-  ## COMPILATION INSTRUCTIONS:
+**ADD DEPTH:** Include personal context and preferences that inform assistance approaches
 
-  1. **INCLUDE SPECIFIC TOOLS & SERVICES:** Mention actual apps, services, platforms, and tools they use
-  
-  2. **CAPTURE COMMUNICATION PATTERNS:** How do they write emails? What's their tone? How do they express preferences?
-  
-  3. **HIGHLIGHT CURRENT PRIORITIES:** What are they actually working on right now? What's on their mind?
-  
-  4. **DOCUMENT PREFERENCES:** Specific likes, dislikes, brands, approaches, and ways they prefer to do things
-  
-  5. **PRESERVE RELATIONSHIP CONTEXT:** Key people in their life and how they interact with different types of relationships
-  
-  6. **INCLUDE OPERATIONAL DETAILS:** Workflows, habits, decision-making patterns, and approaches to problems
-  
-  7. **FOCUS ON ASSISTANCE VALUE:** What context would help an AI assistant be genuinely useful to this person?
+**FINISH THOUGHTFULLY:** End with emerging patterns or less certain insights that might be relevant
 
-  Create a comprehensive AI assistant manual that helps an LLM understand {{userInfo.firstName}} {{userInfo.lastName}} as a real person with specific preferences, current priorities, and distinct ways of thinking and operating. This should be practical and detailed enough to enable genuinely useful assistance. 
+**MAINTAIN FLOW:** Create natural transitions between topics rather than abrupt topic changes
+
+**PRESERVE SPECIFICITY:** Include actual service names, real relationships, concrete examples, and specific preferences
+</compilation_principles>
+
+{{role "user"}}
+**Today's Date:** {{todaysDate}}
+**User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
+
+**Available Profile Sections:**
+{{#each profileFiles}}
+**{{@key}}:**
+{{this}}
+
+{{/each}}
+
+Create a comprehensive, flowing LLM assistant manual that prioritizes essential information and enables genuinely useful assistance for {{userInfo.firstName}} {{userInfo.lastName}}. 

@@ -1,7 +1,7 @@
 ---
 model: openai/gpt-4o-mini
 config:
-  temperature: 0.3
+  temperature: 0.1
 response_format:
   type: json_object
 input:
@@ -10,15 +10,22 @@ input:
     properties:
       emailContent:
         type: string
+        description: "The main content/body of the email"
       emailMetadata:
         type: object
         properties:
           sender:
             type: string
+            description: "Full sender information (Name <email@domain.com>)"
           senderDomain:
             type: string
+            description: "Domain of the sender (e.g., dropbox.com, amazon.com)"
           subject:
             type: string
+            description: "Email subject line"
+          to:
+            type: string
+            description: "Recipients in To field"
         required: [sender, senderDomain, subject]
       userInfo:
         type: object
@@ -32,8 +39,10 @@ input:
         required: [firstName, lastName, email]
       emailDate:
         type: string
+        description: "The date this email was sent/received in YYYY-MM-DD format"
       todaysDate:
         type: string
+        description: "Today's date in YYYY-MM-DD format for temporal context"
     required: [emailContent, emailMetadata, userInfo, emailDate, todaysDate]
 output:
   schema:
@@ -41,101 +50,87 @@ output:
     properties:
       inferences:
         type: array
+        maxItems: 3
         items:
           type: object
           properties:
+            reasoning:
+              type: string
+              description: "Step-by-step analysis of how this service insight was derived from the email"
             categories:
               type: array
               items:
                 type: string
                 enum: [accounts, behavioral, personal, basic]
+              maxItems: 3
+              minItems: 1
             insight:
               type: string
+              description: "Clear factual statement about the user's service relationship or lifestyle"
             confidence:
               type: number
-              minimum: 0.7
+              minimum: 0.5
               maximum: 1
+              description: "Confidence level based on evidence strength"
             evidence:
               type: string
+              description: "Key quote or reference from the email"
             extractedOn:
               type: string
-            reasoning:
-              type: string
-          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
+              description: "The email date for temporal context"
+          required: [reasoning, categories, insight, confidence, evidence, extractedOn]
     required: [inferences]
 ---
 {{role "system"}}
-You are an expert profile builder who extracts useful biographical insights from emails to help AI assistants understand and serve people better.
-
-{{role "user"}}
-I need you to analyze this service email and extract useful profile insights about {{userInfo.firstName}} {{userInfo.lastName}}.
-
-{{>email-direction-understanding}}
-
-{{>user-identity-awareness userInfo=userInfo}}
+You are an expert profile builder who extracts useful insights from service emails to build comprehensive profiles that help AI assistants serve people better.
 
 {{>profile-mission userInfo=userInfo}}
 
-<analysis_focus>
-You're analyzing an email **TO** {{userInfo.firstName}} from a service/company. These emails reveal:
-- **What services they use** (accounts, subscriptions, providers)
-- **Where they live/work** (service locations, delivery addresses)  
-- **How they live** (lifestyle choices, preferences, behaviors)
-- **Their current situation** (financial patterns, life stage, priorities)
-</analysis_focus>
+<extraction_focus>
+Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} from service communications that reveal:
+- **Service relationships** (accounts, subscriptions, providers they use)
+- **Geographic location** (where they live/work based on service areas)
+- **Lifestyle preferences** (service choices that indicate priorities and interests)
+- **Behavioral patterns** (how they engage with services and spending priorities)
+</extraction_focus>
 
 <inference_guidelines>
-## MAKE REASONABLE INFERENCES
+## MAKE USEFUL INFERENCES FROM SERVICE EMAILS
 
 **Geographic Location:**
 - Local service providers → User lives/works in that area
-- "Your dentist in San Mateo" → User has dentist in San Mateo, likely lives in Bay Area
+- "Your dentist in San Mateo" → User likely lives in Bay Area
 - Utility bills → User resides at service address
-- Local gym membership → User works out in that area
+- Local business emails → User patronizes establishments in that area
 
 **Service Relationships:**  
 - Account emails → User has active relationship with this service
-- Healthcare providers → User receives care from these professionals
-- Subscription services → User actively uses these platforms
-- Local businesses → User patronizes these establishments
-
-**Lifestyle & Preferences:**
 - Premium service tiers → User values quality/convenience
-- Eco-friendly services → User has environmental consciousness
-- Fitness/wellness services → User prioritizes health
-- Educational platforms → User invests in learning
+- Subscription confirmations → User actively uses these platforms
+- Healthcare providers → User receives care from these professionals
 
-**Financial Patterns:**
-- Payment confirmations → User's spending categories
-- Subscription levels → User's budget priorities
-- Service frequency → User's usage patterns
-
-**Behavioral Patterns (WHO they are, not what this email asks):**
+**Lifestyle & Spending Patterns:**
 - Service choices → User's values and priorities
-- Usage patterns → User's lifestyle habits
-- Provider relationships → User's approach to services
-- ❌ Avoid: What this specific email is requesting (review requests, calls-to-action)
+- Premium subscriptions → Quality preferences and budget priorities
+- Eco-friendly services → Environmental consciousness
+- Fitness/wellness services → Health prioritization
+- Educational platforms → Learning investment patterns
 </inference_guidelines>
 
-<extraction_schema>
-## EXTRACTION CATEGORIES:
+{{>extraction-categories}}
 
-**basic:** Geographic location, contact info, demographic details
-**accounts:** Service relationships, subscriptions, memberships  
-**behavioral:** Usage patterns, preferences, habits, choices they make
-**personal:** Lifestyle, interests, life situation, priorities
-</extraction_schema>
+{{>user-identity-awareness userInfo=userInfo}}
 
-{{>extraction-principles}}
+{{role "user"}}
+I need you to analyze this service email that {{userInfo.firstName}} {{userInfo.lastName}} received and extract useful profile insights.
 
-{{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
-
-{{>temporal-context emailDate=emailDate}}
-
----
+<email_context>
+**Email Type:** Service/Company email **SENT TO** {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}}
+**Analysis Focus:** Extract what their service relationships reveal about their lifestyle, location, and preferences
+</email_context>
 
 <email_data>
-**EMAIL TO ANALYZE:**
+**SERVICE EMAIL TO {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}THE USER{{/if}}:**
 
 **Date:** {{emailDate}}
 **From:** {{emailMetadata.sender}}
@@ -146,5 +141,5 @@ You're analyzing an email **TO** {{userInfo.firstName}} from a service/company. 
 </email_data>
 
 <task>
-Extract useful profile insights that help understand {{userInfo.firstName}}'s life, location, preferences, and service relationships. Make reasonable inferences that would help an AI assistant serve this person better.
+Extract useful insights about {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} service relationships, location, lifestyle preferences, and behavioral patterns. Focus on building a profile that enables genuinely useful AI assistance based on their service choices and lifestyle signals.
 </task> 

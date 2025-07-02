@@ -1,7 +1,7 @@
 ---
 model: openai/gpt-4o-mini
 config:
-  temperature: 0.2
+  temperature: 0.1
 response_format:
   type: json_object
 input:
@@ -50,23 +50,27 @@ output:
     properties:
       inferences:
         type: array
+        maxItems: 3
         items:
           type: object
           properties:
+            reasoning:
+              type: string
+              description: "Step-by-step analysis of how this subscription insight was derived from the newsletter"
             categories:
               type: array
               items:
                 type: string
                 enum: [accounts, personal, professional]
               description: "Newsletter insights: subscription (accounts) and topic interests (personal/professional)"
-              maxItems: 2
+              maxItems: 3
               minItems: 1
             insight:
               type: string
-              description: "Factual statement about subscription relationship only"
+              description: "Clear factual statement about subscription relationship or interest area"
             confidence:
               type: number
-              minimum: 0.7
+              minimum: 0.5
               maximum: 1
               description: "Confidence level - newsletters have reliable subscription evidence"
             evidence:
@@ -75,73 +79,57 @@ output:
             extractedOn:
               type: string
               description: "The email date for temporal context"
-            reasoning:
-              type: string
-              description: "Brief explanation of why this is a subscription relationship"
-          required: [categories, insight, confidence, evidence, extractedOn, reasoning]
+          required: [reasoning, categories, insight, confidence, evidence, extractedOn]
     required: [inferences]
 ---
 {{role "system"}}
-You are an expert profile builder who extracts useful subscription insights from newsletters to help AI assistants understand people's interests and information consumption patterns.
+You are an expert profile builder who extracts useful subscription insights from newsletters to build comprehensive profiles that help AI assistants understand people's interests and information consumption patterns.
+
+{{>profile-mission userInfo=userInfo}}
+
+<extraction_focus>
+Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} from newsletter subscriptions that reveal:
+- **Information consumption patterns** (what types of content they value)
+- **Topic interests** (professional, personal, industry focus areas)
+- **Subscription relationships** (platforms, publications, content creators)
+- **Learning and development priorities** (areas they invest time in)
+</extraction_focus>
+
+<inference_guidelines>
+## MAKE USEFUL INFERENCES FROM NEWSLETTERS
+
+**Subscription Relationships:**
+- Newsletter receipt → User subscribes to this content
+- Platform usage → User has account on this platform (Substack, Medium, etc.)
+- Regular publication → User values this type of information
+
+**Topic Interest Inference:**
+- Technology newsletter → Interest in technology and innovation
+- Business publication → Interest in business/entrepreneurship  
+- Industry newsletter → Professional interest in that field
+- Lifestyle content → Personal interest in that lifestyle area
+- Educational content → Learning and development priorities
+
+**Information Consumption Patterns:**
+- Newsletter frequency → Information consumption habits
+- Content depth → Learning style preferences
+- Topic diversity → Breadth of interests and curiosity
+</inference_guidelines>
+
+{{>extraction-categories}}
+
+{{>user-identity-awareness userInfo=userInfo}}
 
 {{role "user"}}
 I need you to analyze this newsletter that {{userInfo.firstName}} {{userInfo.lastName}} received and extract useful profile insights about their interests and subscriptions.
 
-{{>email-direction-understanding}}
-
-{{>user-identity-awareness userInfo=userInfo}}
-
-{{>profile-mission userInfo=userInfo}}
-
-<analysis_focus>
-You're analyzing a newsletter **TO** {{userInfo.firstName}} to understand:
-- **What content they subscribe to** (publications, platforms, topics)
-- **What subjects interest them** (professional, personal, industry focus)
-- **Their information consumption patterns** (what types of content they value)
-</analysis_focus>
-
-<extraction_guidelines>
-## WHAT TO EXTRACT
-
-**Subscription Relationships (accounts):**
-- Newsletter/publication name
-- Platform (Substack, Medium, Beehiiv, etc.)
-- Subscription status evidence
-
-**Topic Interests (personal/professional):**
-- Subject areas the newsletter covers
-- Industry or domain focus
-- Personal vs professional interest areas
-
-**Interest Inference Logic:**
-- Newsletter about technology → Interest in technology
-- Business publication → Interest in business/entrepreneurship  
-- Industry newsletter → Professional interest in that industry
-- Lifestyle content → Personal interest in that topic
-</extraction_guidelines>
-
-{{>extraction-principles}}
-
-<newsletter_specific_rules>
-**Newsletter-Specific Logic:**
-- Newsletter subscription → User receives this content type
-- Publication focus → User interested in this subject area
-- Platform usage → User has account on this platform
-
-**Don't extract author's personal content as user attributes:**
-- Author's experiences ≠ User's experiences
-- Author's opinions ≠ User's opinions
-- Author's location ≠ User's location
-</newsletter_specific_rules>
-
-{{>multi-turn-conversation-analysis emailMetadata=emailMetadata}}
-
-{{>temporal-context emailDate=emailDate}}
-
----
+<email_context>
+**Email Type:** Newsletter/Publication **SENT TO** {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}}
+**Analysis Focus:** Extract what their subscription choices reveal about interests and information consumption patterns
+</email_context>
 
 <email_data>
-**NEWSLETTER TO {{userInfo.firstName}}:**
+**NEWSLETTER TO {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}THE USER{{/if}}:**
 
 **Date:** {{emailDate}}
 **From:** {{emailMetadata.sender}}
@@ -152,5 +140,5 @@ You're analyzing a newsletter **TO** {{userInfo.firstName}} to understand:
 </email_data>
 
 <task>
-Extract subscription relationship and topic interests that help understand {{userInfo.firstName}}'s information consumption patterns and subject area interests. Focus on what their subscription choice reveals, not the author's personal content.
+Extract subscription relationships and topic interests that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} information consumption patterns and subject area interests. Focus on what their subscription choice reveals about their professional and personal interests rather than the newsletter's specific content.
 </task> 

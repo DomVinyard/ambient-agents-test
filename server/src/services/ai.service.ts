@@ -43,7 +43,6 @@ export class AIService {
           const partialContent = fs.readFileSync(partialPath, 'utf-8');
           
           partials[partialName] = partialContent;
-          console.log(`📝 Loaded partial: ${partialName}`);
         }
       }
     } catch (error) {
@@ -152,11 +151,11 @@ export class AIService {
         ...classifyConfig
       });
 
-      const { emailType, confidence, reasoning } = classifyResult.object;
-      console.log(`📋 Email classified as: ${emailType} (confidence: ${confidence}) - ${reasoning}`);
+      const { classification, confidence, reasoning } = classifyResult.object;
+      console.log(`📋 Email classified as: ${classification} (confidence: ${confidence}) - ${reasoning}`);
 
       return {
-        emailType,
+        emailType: classification,
         confidence,
         reasoning
       };
@@ -346,7 +345,8 @@ export class AIService {
       if (emailObj.classification?.emailType) {
         const extractPromptMap = {
           'newsletter': 'received/extract-newsletter',
-          'service': 'received/extract-service', 
+          'service': 'received/extract-service',
+          'marketing': 'received/extract-marketing',
           'personal': 'received/extract-personal',
           'professional': 'received/extract-professional'
         };
@@ -506,24 +506,25 @@ export class AIService {
         ...classifyConfig
       });
 
-      const { emailType, confidence, reasoning } = classifyResult.object;
-      console.log(`📋 Email classified as: ${emailType} (confidence: ${confidence}) - ${reasoning}`);
+      const { classification, confidence, reasoning } = classifyResult.object;
+      console.log(`📋 Email classified as: ${classification} (confidence: ${confidence}) - ${reasoning}`);
 
       // Step 2: Route to specialized extraction prompt
       const extractPromptMap = {
         'newsletter': 'received/extract-newsletter',
-        'service': 'received/extract-service', 
+        'service': 'received/extract-service',
+        'marketing': 'received/extract-marketing',
         'personal': 'received/extract-personal',
         'professional': 'received/extract-professional'
       };
 
-      const extractPromptName = extractPromptMap[emailType as keyof typeof extractPromptMap];
+      const extractPromptName = extractPromptMap[classification as keyof typeof extractPromptMap];
       if (!extractPromptName) {
-        console.warn(`⚠️ Unknown email type: ${emailType}, skipping extraction`);
+        console.warn(`⚠️ Unknown email type: ${classification}, skipping extraction`);
         return { 
           insights: [],
           classification: {
-            emailType,
+            emailType: classification,
             confidence,
             reasoning
           }
@@ -547,11 +548,11 @@ export class AIService {
         ...extractConfig
       });
 
-      console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${emailType} prompt`);
+      console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${classification} prompt`);
       return { 
         insights: extractResult.object.inferences,
         classification: {
-          emailType,
+          emailType: classification,
           confidence,
           reasoning
         }
@@ -600,7 +601,7 @@ export class AIService {
         isAccounts: category === 'accounts',
         isRelationships: category === 'relationships',
         isGoals: category === 'goals',
-        isStyle: category === 'style'
+        isApproach: category === 'approach'
       };
 
       // Load and render the blend-profile prompt
