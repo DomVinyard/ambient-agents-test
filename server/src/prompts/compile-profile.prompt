@@ -2,8 +2,15 @@
 model: openai/gpt-4o-mini
 config:
   temperature: 0.3
-response_format:
-  type: json_object
+output:
+  schema:
+    type: object
+    properties:
+      content:
+        type: string
+        description: "The comprehensive compiled profile optimized for LLM consumption as a flowing narrative"
+    required: ["content"]
+    additionalProperties: false
 input:
   schema:
     type: object
@@ -31,14 +38,6 @@ input:
         type: string
         description: "Today's date in YYYY-MM-DD format for temporal context"
     required: [profileFiles, userInfo, todaysDate]
-output:
-  schema:
-    type: object
-    properties:
-      content:
-        type: string
-        description: "The comprehensive compiled profile optimized for LLM consumption as a flowing narrative"
-    required: [content]
 ---
 {{role "system"}}
 You are an expert profile compiler creating an LLM-optimized assistant manual for {{userInfo.firstName}} {{userInfo.lastName}}.

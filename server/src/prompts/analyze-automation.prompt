@@ -2,8 +2,54 @@
 model: openai/gpt-4o-mini
 config:
   temperature: 0.4
-response_format:
-  type: json_object
+output:
+  schema:
+    type: object
+    properties:
+      summary:
+        type: string
+        description: "Brief overview of personalized automation potential based on actual profile patterns"
+      automations:
+        type: array
+        maxItems: 8
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+              description: "Clear, specific name for this background agent"
+            category:
+              type: string
+              enum: ["communication", "productivity", "finance", "health", "learning", "lifestyle", "professional", "creativity", "organization", "relationships"]
+              description: "The primary category this automation falls under"
+            description:
+              type: string
+              description: "Detailed description of what this automation does and why it's valuable for this user"
+            triggers:
+              type: array
+              items:
+                type: string
+              description: "Specific conditions that would activate this automation"
+            actions:
+              type: array
+              items:
+                type: string
+              description: "Specific actions the automation would take"
+            value:
+              type: string
+              description: "Clear explanation of the value/benefit this provides to the user"
+            frequency:
+              type: string
+              enum: ["continuous", "daily", "weekly", "monthly", "as-needed", "event-driven"]
+              description: "How often this automation would run"
+            priority:
+              type: string
+              enum: ["high", "medium", "low"]
+              description: "Priority level based on user patterns and needs"
+          required: ["name", "category", "description", "triggers", "actions", "value", "frequency", "priority"]
+          additionalProperties: false
+    required: ["summary", "automations"]
+    additionalProperties: false
 input:
   schema:
     type: object
@@ -27,50 +73,6 @@ input:
         type: string
         description: "Today's date in YYYY-MM-DD format"
     required: [profileFiles, userInfo, todaysDate]
-output:
-  schema:
-    type: object
-    properties:
-      summary:
-        type: string
-        description: "Brief overview of personalized automation potential based on actual profile patterns"
-      automations:
-        type: array
-        maxItems: 8
-        items:
-          type: object
-          properties:
-            name:
-              type: string
-              description: "Clear, specific name for this background agent"
-            category:
-              type: string
-              enum: ["communication", "productivity", "finance", "health", "learning", "relationships", "travel", "shopping"]
-              description: "Primary category for this automation"
-            priority:
-              type: string
-              enum: ["high", "medium", "low"]
-              description: "Implementation priority based on impact and feasibility"
-            trigger:
-              type: string
-              description: "Specific conditions that would activate this agent"
-            actions:
-              type: array
-              items:
-                type: string
-              description: "Specific automated actions this agent would perform"
-            evidence:
-              type: string
-              description: "Profile evidence that supports need for this automation"
-            impact:
-              type: string
-              description: "Expected time savings and life improvement"
-            complexity:
-              type: string
-              enum: ["simple", "medium", "complex"]
-              description: "Implementation difficulty"
-          required: [name, category, priority, trigger, actions, evidence, impact, complexity]
-    required: [summary, automations]
 ---
 ---
 {{role "system"}}

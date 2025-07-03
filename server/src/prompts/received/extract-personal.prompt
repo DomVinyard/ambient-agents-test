@@ -3,7 +3,43 @@ model: openai/gpt-4o-mini
 config:
   temperature: 0.1
 response_format:
-  type: json_object
+  type: json_schema
+  json_schema:
+    name: "extract_personal_insights"
+    strict: true
+    schema:
+      type: object
+      properties:
+        inferences:
+          type: array
+          maxItems: 12
+          items:
+            type: object
+            properties:
+              reasoning:
+                type: string
+                description: "Step-by-step analysis of how this personal insight was derived from the email"
+              categories:
+                type: array
+                items:
+                  type: string
+                  enum: ["basic", "personal", "relationships", "goals", "communication", "behavioral"]
+                maxItems: 3
+                minItems: 1
+              insight:
+                type: string
+              confidence:
+                type: number
+                minimum: 0.5
+                maximum: 1
+              evidence:
+                type: string
+              extractedOn:
+                type: string
+            required: ["reasoning", "categories", "insight", "confidence", "evidence", "extractedOn"]
+            additionalProperties: false
+      required: ["inferences"]
+      additionalProperties: false
 input:
   schema:
     type: object
@@ -55,21 +91,27 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, personal, relationships, goals, communication, behavioral]
+                enum: ["basic", "personal", "relationships", "goals", "communication", "behavioral"]
               maxItems: 3
               minItems: 1
             insight:
               type: string
+              description: "Clear factual statement about the user"
             confidence:
               type: number
               minimum: 0.5
               maximum: 1
+              description: "Confidence level based on evidence strength"
             evidence:
               type: string
+              description: "Key quote or reference from the email"
             extractedOn:
               type: string
-          required: [reasoning, categories, insight, confidence, evidence, extractedOn]
-    required: [inferences]
+              description: "The email date for temporal context"
+          required: ["reasoning", "categories", "insight", "confidence", "evidence", "extractedOn"]
+          additionalProperties: false
+    required: ["inferences"]
+    additionalProperties: false
 ---
 {{role "system"}}
 You are an expert profile builder who extracts useful insights from personal emails to build comprehensive profiles that help AI assistants serve people better.

@@ -14,7 +14,7 @@ import {
   Button,
   Divider,
 } from "@chakra-ui/react";
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, Trash2, Eye } from "lucide-react";
 import { useState } from "react";
 import { FileItem } from "../types";
 
@@ -25,6 +25,7 @@ interface FileListProps {
   onDeleteFile: (fileName: string) => void;
   onDeleteAll: () => void;
   onCompileProfile: () => void;
+  onPreviewFile?: (fileName: string, content: string) => void;
   isCompiling: boolean;
 }
 
@@ -35,6 +36,7 @@ export default function FileList({
   onDeleteFile,
   onDeleteAll,
   onCompileProfile,
+  onPreviewFile,
   isCompiling,
 }: FileListProps) {
   const [contextMenuFile, setContextMenuFile] = useState<string | null>(null);
@@ -131,6 +133,19 @@ export default function FileList({
       onDeleteFile(fileName);
     }
     setContextMenuFile(null);
+  };
+
+  const handlePreviewFile = (fileName: string) => {
+    const file = files[fileName];
+    if (file && onPreviewFile) {
+      onPreviewFile(fileName, file.content);
+    }
+    setContextMenuFile(null);
+  };
+
+  const canPreview = (fileName: string) => {
+    const category = getCategory(fileName);
+    return compiledCategories.includes(category) && onPreviewFile;
   };
 
   return (
@@ -251,6 +266,15 @@ export default function FileList({
                           </Text>
                         </MenuButton>
                         <MenuList>
+                          {canPreview(fileName) && (
+                            <MenuItem
+                              icon={<Eye size={16} />}
+                              onClick={() => handlePreviewFile(fileName)}
+                              color="blue.600"
+                            >
+                              Preview {getCategoryWithEmoji(category)}
+                            </MenuItem>
+                          )}
                           <MenuItem
                             icon={<Trash2 size={16} />}
                             onClick={() => handleDeleteFile(fileName)}
@@ -329,6 +353,15 @@ export default function FileList({
                           </Text>
                         </MenuButton>
                         <MenuList>
+                          {canPreview(fileName) && (
+                            <MenuItem
+                              icon={<Eye size={16} />}
+                              onClick={() => handlePreviewFile(fileName)}
+                              color="blue.600"
+                            >
+                              Preview {getCategoryWithEmoji(category)}
+                            </MenuItem>
+                          )}
                           <MenuItem
                             icon={<Trash2 size={16} />}
                             onClick={() => handleDeleteFile(fileName)}

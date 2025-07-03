@@ -10,6 +10,7 @@ import FileEditor from "./FileEditor";
 import { PusherReceiver } from "./PusherReceiver";
 import FetchEmailsModal from "./FetchEmailsModal";
 import MasterProgressBar from "./MasterProgressBar";
+import ProfilePreviewModal from "./ProfilePreviewModal";
 import { useFileManager } from "../hooks/useFileManager";
 import { Email, Insight } from "../types";
 import { storageService } from "../services/storage.service";
@@ -47,6 +48,15 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
   // Modal states
   const [fetchModalOpen, setFetchModalOpen] = useState(false);
+  const [previewModal, setPreviewModal] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    content: string;
+  }>({
+    isOpen: false,
+    fileName: "",
+    content: "",
+  });
 
   // Error states
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -809,75 +819,29 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     }
   };
 
+  const handlePreviewFile = (fileName: string, content: string) => {
+    setPreviewModal({
+      isOpen: true,
+      fileName,
+      content,
+    });
+  };
+
+  const handleClosePreview = () => {
+    setPreviewModal({
+      isOpen: false,
+      fileName: "",
+      content: "",
+    });
+  };
+
   const formatAutomationData = (automationData: {
     summary: string;
     automations: any[];
   }): string => {
-    let content = `# Background Automation Opportunities\n\n`;
+    const automations = automationData.automations;
 
-    content += `## Summary\n${automationData.summary}\n\n`;
-
-    content += `## Recommended Automations\n\n`;
-
-    const priorityOrder = { high: 1, medium: 2, low: 3 };
-    const sortedAutomations = automationData.automations.sort((a, b) => {
-      return (
-        (priorityOrder[a.priority as keyof typeof priorityOrder] || 4) -
-        (priorityOrder[b.priority as keyof typeof priorityOrder] || 4)
-      );
-    });
-
-    sortedAutomations.forEach((automation, index) => {
-      const priorityEmoji =
-        automation.priority === "high"
-          ? "🔥"
-          : automation.priority === "medium"
-          ? "⚡"
-          : "💡";
-      const categoryEmoji =
-        automation.category === "communication"
-          ? "💬"
-          : automation.category === "productivity"
-          ? "⚡"
-          : automation.category === "finance"
-          ? "💳"
-          : automation.category === "health"
-          ? "🏥"
-          : automation.category === "learning"
-          ? "📚"
-          : automation.category === "relationships"
-          ? "👥"
-          : automation.category === "travel"
-          ? "✈️"
-          : automation.category === "shopping"
-          ? "🛒"
-          : "🤖";
-
-      content += `### ${priorityEmoji} ${automation.name}\n`;
-      content += `**Category:** ${categoryEmoji} ${
-        automation.category.charAt(0).toUpperCase() +
-        automation.category.slice(1)
-      }\n`;
-      content += `**Priority:** ${automation.priority.toUpperCase()}\n`;
-      content += `**Complexity:** ${automation.complexity}\n\n`;
-
-      content += `**Trigger:** ${automation.trigger}\n\n`;
-
-      content += `**Actions:**\n`;
-      automation.actions.forEach((action: string) => {
-        content += `- ${action}\n`;
-      });
-      content += `\n`;
-
-      content += `**Evidence:** ${automation.evidence}\n\n`;
-      content += `**Expected Impact:** ${automation.impact}\n\n`;
-
-      if (index < sortedAutomations.length - 1) {
-        content += `---\n\n`;
-      }
-    });
-
-    return content;
+    return JSON.stringify(automations, null, 2);
   };
 
   return (
@@ -980,6 +944,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             onDeleteFile={handleDeleteFile}
             onDeleteAll={handleDeleteAllFiles}
             onCompileProfile={handleCompileProfile}
+            onPreviewFile={handlePreviewFile}
             isCompiling={compilingProfile}
           />
         </Box>
@@ -997,6 +962,14 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
         profileProgress={masterProgress.profileProgress}
         compileProgress={masterProgress.compileProgress}
         isVisible={masterProgress.isEndToEndProcess}
+      />
+
+      <ProfilePreviewModal
+        isOpen={previewModal.isOpen}
+        onClose={handleClosePreview}
+        fileName={previewModal.fileName}
+        content={previewModal.content}
+        files={files}
       />
     </Box>
   );

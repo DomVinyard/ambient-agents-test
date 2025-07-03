@@ -2,8 +2,24 @@
 model: openai/gpt-4o-mini
 config:
   temperature: 0.1
-response_format:
-  type: json_object
+output:
+  schema:
+    type: object
+    properties:
+      reasoning:
+        type: string
+        description: "Step-by-step analysis of the email signals and why they point to a specific category"
+      classification:
+        type: string
+        enum: ["newsletter", "service", "marketing", "personal", "professional"]
+        description: "The most appropriate category for this email"
+      confidence:
+        type: number
+        minimum: 0.6
+        maximum: 1.0
+        description: "Confidence in the classification decision"
+    required: ["reasoning", "classification", "confidence"]
+    additionalProperties: false
 input:
   schema:
     type: object
@@ -44,23 +60,6 @@ input:
             type: string
         required: [firstName, lastName, email]
     required: [emailContent, emailDate, todaysDate, emailMetadata, userInfo]
-output:
-  schema:
-    type: object
-    properties:
-      reasoning:
-        type: string
-        description: "Step-by-step analysis of the email signals and why they point to a specific category"
-      classification:
-        type: string
-        enum: ["newsletter", "service", "marketing", "personal", "professional"]
-        description: "The most appropriate category for this email"
-      confidence:
-        type: number
-        minimum: 0.6
-        maximum: 1.0
-        description: "Confidence in the classification decision"
-    required: [reasoning, classification, confidence]
 ---
 {{role "system"}}
 You are an expert email classifier who categorizes emails to help determine the best extraction approach for profile building.

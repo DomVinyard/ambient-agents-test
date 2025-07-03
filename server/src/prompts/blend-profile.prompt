@@ -1,9 +1,20 @@
 ---
-model: openai/gpt-4o-mini
+model: openai/gpt-4.1
 config:
   temperature: 0.2
 response_format:
-  type: json_object
+  type: json_schema
+  json_schema:
+    name: "blend_profile"
+    strict: true
+    schema:
+      type: object
+      properties:
+        content:
+          type: string
+          description: "The blended profile content for this specific category only, with confidence attribution"
+      required: ["content"]
+      additionalProperties: false
 input:
   schema:
     type: object
@@ -63,7 +74,8 @@ output:
       content:
         type: string
         description: "The blended profile content for this specific category only, with confidence attribution"
-    required: [content]
+    required: ["content"]
+    additionalProperties: false
 ---
 {{role "system"}}
 You are an expert profile writer creating a {{category}} profile section using high-quality insights with intelligent temporal and quality reasoning.

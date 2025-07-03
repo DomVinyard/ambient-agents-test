@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Box, VStack, Text, Button, useToast } from '@chakra-ui/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import BeautifulMarkdownEditor from './BeautifulMarkdownEditor';
-import SaunaAvatar from './SaunaAvatar';
+import { useState, useEffect } from "react";
+import { Box, VStack, Text, Button, useToast } from "@chakra-ui/react";
+import { motion, AnimatePresence } from "framer-motion";
+import BeautifulMarkdownEditor from "./BeautifulMarkdownEditor";
+import SaunaAvatar from "./SaunaAvatar";
 
 interface AnimatedProfileTransitionProps {
   // Loading props
@@ -10,15 +10,19 @@ interface AnimatedProfileTransitionProps {
   statusMessage: string;
   error?: string | null;
   onRetry?: () => void;
-  
-  // Profile props  
+
+  // Profile props
   profileContent: string;
   onContentChange: (value: string) => void;
   onConfirm: () => void;
   onLogout: () => void;
-  
+
   // Animation state
   isComplete: boolean;
+
+  // Preview mode props (optional)
+  isPreviewMode?: boolean;
+  onEnterEditMode?: () => void;
 }
 
 export default function AnimatedProfileTransition({
@@ -30,9 +34,12 @@ export default function AnimatedProfileTransition({
   onContentChange,
   onConfirm,
   onLogout,
-  isComplete
+  isComplete,
+  isPreviewMode = false,
+  onEnterEditMode,
 }: AnimatedProfileTransitionProps) {
   const [showProfile, setShowProfile] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Start transition when complete
   useEffect(() => {
@@ -45,7 +52,19 @@ export default function AnimatedProfileTransition({
     }
   }, [isComplete]);
 
-    return (
+  // Handle button clicks based on current state
+  const handleButtonClick = () => {
+    if (isPreviewMode && !isEditMode && onEnterEditMode) {
+      // Preview mode: transition to edit mode
+      setIsEditMode(true);
+      onEnterEditMode();
+    } else {
+      // Edit mode or normal flow: call onConfirm (will close modal in preview context)
+      onConfirm();
+    }
+  };
+
+  return (
     <Box h="100vh" bg="gray.50" position="relative" overflow="hidden">
       {/* Logout button - only show in profile mode */}
       {showProfile && (
@@ -63,19 +82,19 @@ export default function AnimatedProfileTransition({
       )}
 
       {/* Main content area */}
-      <Box 
-        h="100vh" 
-        display="flex" 
-        alignItems="center" 
+      <Box
+        h="100vh"
+        display="flex"
+        alignItems="center"
         justifyContent="center"
         flexDirection="column"
         px="6"
         py="6"
       >
-        <VStack 
-          spacing={showProfile ? 4 : 6} 
-          maxW={showProfile ? "4xl" : "md"} 
-          w="full" 
+        <VStack
+          spacing={showProfile ? 4 : 6}
+          maxW={showProfile ? "4xl" : "md"}
+          w="full"
           h={showProfile ? "full" : "auto"}
           justify="center"
           mt="-8vh"
@@ -86,8 +105,8 @@ export default function AnimatedProfileTransition({
             transition={{ type: "spring", stiffness: 200, damping: 30 }}
             style={{ flexShrink: 0 }}
           >
-            <SaunaAvatar 
-              size="48px" 
+            <SaunaAvatar
+              size="48px"
               showPulse={!showProfile}
               isProfileMode={showProfile}
             />
@@ -126,9 +145,17 @@ export default function AnimatedProfileTransition({
                     transform="translateX(-50%) rotate(45deg)"
                     zIndex={1}
                   />
-                  
-                  <Text fontSize="md" fontWeight="medium" color="gray.800" textAlign="center" lineHeight="1.6">
-                    Here's what I found, you can edit out anything you don't want me to know
+
+                  <Text
+                    fontSize="md"
+                    fontWeight="medium"
+                    color="gray.800"
+                    textAlign="center"
+                    lineHeight="1.6"
+                  >
+                    {isPreviewMode && !isEditMode
+                      ? "What can I help you with?"
+                      : "Here's what I found, you can edit out anything you don't want me to know."}
                   </Text>
                 </Box>
               </Box>
@@ -136,36 +163,41 @@ export default function AnimatedProfileTransition({
           )}
 
           {/* Speech bubble that expands into editor */}
-          <motion.div
-            layoutId="speech-bubble"
-            style={{ 
-              position: 'relative',
-              width: showProfile ? '100%' : '320px',
-              height: showProfile ? '60vh' : 'auto',
+          <Box
+            style={{
+              position: "relative",
+              width: showProfile ? "100%" : "320px",
+              height: showProfile ? "60vh" : "auto",
               flexShrink: showProfile ? 1 : 0,
-              minHeight: showProfile ? '400px' : 'auto'
+              minHeight: showProfile ? "400px" : "auto",
             }}
-            transition={{ type: "spring", stiffness: 150, damping: 25 }}
           >
-            <Box
-              bg="white"
-              borderRadius={showProfile ? "12px" : "20px"}
-              p={showProfile ? 0 : 6}
-              boxShadow="0 4px 20px rgba(0,0,0,0.1)"
-              position="relative"
-              border="1px solid"
-              borderColor="gray.200"
-              h={showProfile ? "100%" : "auto"}
-              overflow="hidden"
-            >
-              {/* Speech bubble tail - only show during loading */}
-              <AnimatePresence>
-                {!showProfile && (
-                  <motion.div
-                    initial={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
+            <AnimatePresence mode="wait">
+              {!showProfile ? (
+                // Loading state
+                <motion.div
+                  key="loading-bubble"
+                  initial={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  <Box
+                    bg="white"
+                    borderRadius="20px"
+                    p={6}
+                    boxShadow="0 4px 20px rgba(0,0,0,0.1)"
+                    position="relative"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    h="100%"
+                    overflow="hidden"
                   >
+                    {/* Speech bubble tail - only show during loading */}
                     <Box
                       position="absolute"
                       top="-8px"
@@ -180,32 +212,75 @@ export default function AnimatedProfileTransition({
                       transform="translateX(-50%) rotate(45deg)"
                       zIndex={2}
                     />
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
-              {/* Content inside the bubble */}
-              <AnimatePresence mode="wait">
-                {!showProfile ? (
-                  // Loading text
-                  <motion.div
-                    key="loading-text"
-                    initial={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Text fontSize="lg" fontWeight="medium" color="gray.800" textAlign="center" lineHeight="1.6">
+                    <Text
+                      fontSize="lg"
+                      fontWeight="medium"
+                      color="gray.800"
+                      textAlign="center"
+                      lineHeight="1.6"
+                    >
                       {statusMessage}
                     </Text>
-                  </motion.div>
-                ) : (
-                  // Editor content
-                  <motion.div
-                    key="editor"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.4 }}
-                    style={{ height: '100%' }}
+                  </Box>
+                </motion.div>
+              ) : isPreviewMode && !isEditMode ? (
+                // Preview mode
+                <motion.div
+                  key="preview-mode"
+                  initial={{ opacity: 0, x: 0 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -300 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  <Box
+                    bg="white"
+                    borderRadius="12px"
+                    p={0}
+                    boxShadow="0 4px 20px rgba(0,0,0,0.1)"
+                    position="relative"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    h="100%"
+                    overflow="hidden"
+                  >
+                    <BeautifulMarkdownEditor
+                      value={profileContent}
+                      onChange={() => {}} // Read-only in preview
+                      placeholder="Your profile will appear here..."
+                      height="100%"
+                    />
+                  </Box>
+                </motion.div>
+              ) : (
+                // Edit mode
+                <motion.div
+                  key="edit-mode"
+                  initial={{ opacity: 0, x: 100 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -100 }}
+                  transition={{ duration: 0.4, ease: "easeInOut" }}
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                >
+                  <Box
+                    bg="white"
+                    borderRadius="12px"
+                    p={0}
+                    boxShadow="0 4px 20px rgba(0,0,0,0.1)"
+                    position="relative"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    h="100%"
+                    overflow="hidden"
                   >
                     <BeautifulMarkdownEditor
                       value={profileContent}
@@ -213,11 +288,11 @@ export default function AnimatedProfileTransition({
                       placeholder="Your profile will appear here..."
                       height="100%"
                     />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Box>
-          </motion.div>
+                  </Box>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Box>
 
           {/* Loading state progress bar */}
           {!showProfile && (
@@ -234,9 +309,9 @@ export default function AnimatedProfileTransition({
                   animate={{ width: `${overallProgress}%` }}
                   transition={{ duration: 0.3 }}
                   style={{
-                    height: '100%',
-                    background: 'linear-gradient(90deg, #5BA163, #FFC116)',
-                    borderRadius: '9999px',
+                    height: "100%",
+                    background: "linear-gradient(90deg, #5BA163, #FFC116)",
+                    borderRadius: "9999px",
                   }}
                 />
               </Box>
@@ -258,18 +333,20 @@ export default function AnimatedProfileTransition({
                 bg="black"
                 color="white"
                 size="lg"
-                onClick={onConfirm}
+                onClick={handleButtonClick}
                 isDisabled={!profileContent}
                 px={8}
-                _hover={{ 
+                _hover={{
                   bg: "gray.800",
                   transform: "translateY(-1px)",
-                  boxShadow: "0 8px 25px rgba(0,0,0,0.2)"
+                  boxShadow: "0 8px 25px rgba(0,0,0,0.2)",
                 }}
                 _active={{ transform: "translateY(0)" }}
                 transition="all 0.2s"
               >
-                Looks good →
+                {isPreviewMode && !isEditMode
+                  ? "Looks good →"
+                  : "Save & Continue →"}
               </Button>
             </motion.div>
           )}
@@ -278,14 +355,16 @@ export default function AnimatedProfileTransition({
 
       {/* Error handling */}
       {error && !showProfile && (
-        <Box 
+        <Box
           position="absolute"
           bottom="20%"
           left="50%"
           transform="translateX(-50%)"
           textAlign="center"
         >
-          <Text color="red.500" mb={4}>{error}</Text>
+          <Text color="red.500" mb={4}>
+            {error}
+          </Text>
           {onRetry && (
             <Button onClick={onRetry} colorScheme="blue">
               Try Again
@@ -295,4 +374,4 @@ export default function AnimatedProfileTransition({
       )}
     </Box>
   );
-} 
+}
