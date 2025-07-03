@@ -10,7 +10,7 @@ input:
     properties:
       category: 
         type: string
-        enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals, approach]
+        enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals]
         description: "The specific profile category being updated"
       newInsights: 
         type: array
@@ -376,27 +376,7 @@ Capture explicitly stated objectives, plans, and future-oriented intentions:
 **WRITING STYLE:** Group by timeframe (short/medium/long-term) and organize professional vs. personal.
 {{/if}}
 
-{{#if isApproach}}
-**APPROACH & METHODOLOGY FOCUS:**
-Document how this person interfaces with and navigates the world:
-• Decision-making style (data-driven vs intuitive, research-first vs action-oriented)
-• Problem-solving methodology (systematic vs creative, detail-oriented vs big-picture)
-• Technology adoption patterns (early adopter vs careful evaluator, tool preferences)
-• Learning preferences (hands-on vs research-first, collaborative vs independent)
-• Work methodology (organized vs flexible, deadline-driven vs process-focused)
-• Communication style (direct vs diplomatic, formal vs casual adaptation)
-• Planning approach (detailed plans vs adaptive, preparation vs improvisation)
-• Risk tolerance and approach to uncertainty
-• Information processing style (thorough analysis vs quick decisions)
-• Collaboration preferences (leadership vs support roles, team vs individual work)
-• Quality standards and perfectionism levels
-• Time management and prioritization approaches
-• Life philosophy markers expressed through choices and actions
-• Interface preferences with tools, systems, and people
 
-**SCOPE:** Observable patterns of how they operate, think, and engage with the world.
-**WRITING STYLE:** Group by decision-making, then work style, then interaction patterns with clear evidence.
-{{/if}}
 </category_specific_focus>
 
 <output_requirements>

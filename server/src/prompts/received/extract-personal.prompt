@@ -55,7 +55,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, personal, relationships, goals, communication, behavioral, approach]
+                enum: [basic, personal, relationships, goals, communication, behavioral]
               maxItems: 3
               minItems: 1
             insight:
@@ -123,7 +123,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - What social activities and interests connect them to others?
 </relationship_intelligence>
 
-{{>extraction-categories}}
+
 
 {{>user-identity-awareness userInfo=userInfo}}
 
@@ -148,4 +148,8 @@ I need you to analyze this personal email that {{userInfo.firstName}} {{userInfo
 
 <task>
 Extract useful personal insights that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} personal life, relationships, interests, and social context. Focus on building a profile that enables genuinely useful AI assistance for their personal needs and interests.
+
+**IMPORTANT:** For every insight, you MUST include:
+- **extractedOn:** Use the email date "{{emailDate}}" exactly as provided
+- **categories:** Only use these valid categories: basic, personal, relationships, goals, communication, behavioral
 </task> 

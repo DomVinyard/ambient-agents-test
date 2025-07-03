@@ -330,16 +330,16 @@ app.post('/api/ai/analyze-automation', async (req, res) => {
       fileCount: Object.keys(profileFiles).length 
     });
 
-    const automationContent = await aiService.analyzeAutomation({
+    const automationResult = await aiService.analyzeAutomation({
       profileFiles,
       userInfo
     });
     
     await pusherService.trigger(`${sessionId}`, 'automation-complete', {
-      wordCount: automationContent.split(' ').length
+      automationCount: automationResult.automations.length
     });
     
-    res.json({ content: automationContent });
+    res.json(automationResult);
 
   } catch (err) {
     console.error('Error analyzing automation opportunities:', err);

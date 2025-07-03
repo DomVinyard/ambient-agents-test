@@ -68,6 +68,55 @@ class ProfileService {
     return { emails: newEmails, userInfo };
   }
 
+  private formatAutomationData(automationData: { summary: string; automations: any[] }): string {
+    let content = `# Background Automation Opportunities\n\n`;
+    
+    content += `## Summary\n${automationData.summary}\n\n`;
+    
+    content += `## Recommended Automations\n\n`;
+    
+    const priorityOrder = { 'high': 1, 'medium': 2, 'low': 3 };
+    const sortedAutomations = automationData.automations.sort((a, b) => {
+      return (priorityOrder[a.priority as keyof typeof priorityOrder] || 4) - 
+             (priorityOrder[b.priority as keyof typeof priorityOrder] || 4);
+    });
+    
+    sortedAutomations.forEach((automation, index) => {
+      const priorityEmoji = automation.priority === 'high' ? '🔥' : 
+                           automation.priority === 'medium' ? '⚡' : '💡';
+      const categoryEmoji = automation.category === 'communication' ? '💬' :
+                           automation.category === 'productivity' ? '⚡' :
+                           automation.category === 'finance' ? '💳' :
+                           automation.category === 'health' ? '🏥' :
+                           automation.category === 'learning' ? '📚' :
+                           automation.category === 'relationships' ? '👥' :
+                           automation.category === 'travel' ? '✈️' :
+                           automation.category === 'shopping' ? '🛒' : '🤖';
+      
+      content += `### ${priorityEmoji} ${automation.name}\n`;
+      content += `**Category:** ${categoryEmoji} ${automation.category.charAt(0).toUpperCase() + automation.category.slice(1)}\n`;
+      content += `**Priority:** ${automation.priority.toUpperCase()}\n`;
+      content += `**Complexity:** ${automation.complexity}\n\n`;
+      
+      content += `**Trigger:** ${automation.trigger}\n\n`;
+      
+      content += `**Actions:**\n`;
+      automation.actions.forEach((action: string) => {
+        content += `- ${action}\n`;
+      });
+      content += `\n`;
+      
+      content += `**Evidence:** ${automation.evidence}\n\n`;
+      content += `**Expected Impact:** ${automation.impact}\n\n`;
+      
+      if (index < sortedAutomations.length - 1) {
+        content += `---\n\n`;
+      }
+    });
+    
+    return content;
+  }
+
   async buildProfile(options: ProfileBuildOptions): Promise<ProfileBuildResult> {
     const currentEmails = options.emailsToProcess || await storageService.getEmails();
     const currentUserInfo = options.userInfoToUse || await storageService.getUserInfo();
@@ -222,7 +271,11 @@ class ProfileService {
           ]);
           
           generatedProfileFiles['full.md'] = compileResponse.data.content;
-          generatedProfileFiles['automation.md'] = automationResponse.data.content;
+          
+          // Convert automation JSON to readable format
+          const automationData = automationResponse.data;
+          const automationContent = this.formatAutomationData(automationData);
+          generatedProfileFiles['automation.md'] = automationContent;
           
           options.onProgressUpdate?.('compileProgress', { processed: 2, total: 2 });
         } catch (error) {

@@ -31,137 +31,111 @@ output:
   schema:
     type: object
     properties:
-      content:
+      summary:
         type: string
-        description: "Automation opportunities analysis with specific background agent suggestions"
-    required: [content]
+        description: "Brief overview of personalized automation potential based on actual profile patterns"
+      automations:
+        type: array
+        maxItems: 8
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+              description: "Clear, specific name for this background agent"
+            category:
+              type: string
+              enum: ["communication", "productivity", "finance", "health", "learning", "relationships", "travel", "shopping"]
+              description: "Primary category for this automation"
+            priority:
+              type: string
+              enum: ["high", "medium", "low"]
+              description: "Implementation priority based on impact and feasibility"
+            trigger:
+              type: string
+              description: "Specific conditions that would activate this agent"
+            actions:
+              type: array
+              items:
+                type: string
+              description: "Specific automated actions this agent would perform"
+            evidence:
+              type: string
+              description: "Profile evidence that supports need for this automation"
+            impact:
+              type: string
+              description: "Expected time savings and life improvement"
+            complexity:
+              type: string
+              enum: ["simple", "medium", "complex"]
+              description: "Implementation difficulty"
+          required: [name, category, priority, trigger, actions, evidence, impact, complexity]
+    required: [summary, automations]
 ---
-user: |
-  You are an expert automation consultant analyzing {{userInfo.firstName}} {{userInfo.lastName}}'s profile to identify specific areas where background agents could significantly improve their life through intelligent automation.
+---
+{{role "system"}}
+You are a background agent architect who designs personalized automation systems that solve real problems in people's lives.
 
-  **Today's Date:** {{todaysDate}}
-  **User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
+**YOUR MISSION:** Build specific background agents for {{userInfo.firstName}} {{userInfo.lastName}} that automate actual patterns and needs revealed in their profile.
 
-  **Available Profile Data:**
-  {{#each profileFiles}}
-  **{{@key}}:**
-  {{this}}
+<agent_design_philosophy>
+**Background agents work best when they're:**
+- **Narrow and focused** (solve one specific problem well)
+- **Evidence-based** (respond to actual patterns in their life)  
+- **Contextually intelligent** (understand their preferences and approach)
+- **Practically implementable** (use available APIs and tools)
 
-  {{/each}}
+**Look for automation opportunities in:**
+- **Repetitive tasks** they actually do (not generic suggestions)
+- **Service patterns** they've established 
+- **Communication habits** they've demonstrated
+- **Goal gaps** between what they want and current state
+- **Time conflicts** between priorities and available time
+</agent_design_philosophy>
 
-  ## ANALYSIS FRAMEWORK:
+<evidence_extraction>
+**Extract automation needs from profile evidence:**
 
-  ### BACKGROUND AGENT DEFINITION
-  Background agents are intelligent, autonomous systems that:
-  - **Monitor triggers** (time, events, data changes, emails, calendar updates)
-  - **Make decisions** using reasoning and context
-  - **Execute actions** through API calls and tool integrations
-  - **Learn patterns** from user behavior and preferences
-  - **Operate continuously** without user intervention
+**Communication Patterns:**
+- Regular meeting types → Meeting preparation agent
+- Frequent travel booking → Travel planning agent  
+- Subscription management → Service optimization agent
+- Follow-up patterns → Relationship maintenance agent
 
-  ### AUTOMATION OPPORTUNITY CATEGORIES
+**Service & Account Patterns:**
+- Multiple financial services → Financial aggregation agent
+- Subscription overload → Usage monitoring agent
+- Health service usage → Appointment optimization agent
+- Learning platform usage → Progress tracking agent
 
-  **1. COMMUNICATION & RELATIONSHIP MANAGEMENT**
-  - Email triage and response automation
-  - Calendar scheduling and meeting coordination
-  - Follow-up reminders for important relationships
-  - Social media engagement automation
-  - Newsletter and update management
+**Professional Patterns:**
+- Project management style → Deadline tracking agent
+- Tool preferences → Workflow optimization agent
+- Communication approach → Response automation agent
+- Research needs → Information curation agent
 
-  **2. FINANCIAL & SUBSCRIPTION OPTIMIZATION**
-  - Subscription usage monitoring and cancellation alerts
-  - Bill payment automation and optimization
-  - Investment rebalancing based on goals
-  - Expense categorization and budget alerts
-  - Price monitoring for recurring purchases
+**Personal Life Patterns:**
+- Travel frequency → Travel deal monitoring agent
+- Health priorities → Wellness tracking agent
+- Learning goals → Content delivery agent
+- Social coordination → Event planning agent
+</evidence_extraction>
 
-  **3. PROFESSIONAL PRODUCTIVITY**
-  - Project deadline tracking and milestone alerts
-  - Meeting preparation and agenda automation
-  - Document organization and filing
-  - Task prioritization based on deadlines and importance
-  - Performance metrics tracking and reporting
+{{role "user"}}
+**Today's Date:** {{todaysDate}}
+**User:** {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}})
 
-  **4. PERSONAL LIFE OPTIMIZATION**
-  - Travel planning and booking automation
-  - Health appointment scheduling and reminders
-  - Fitness goal tracking and motivation
-  - Learning progress tracking and content curation
-  - Home maintenance scheduling and reminders
+**Profile Data:**
+{{#each profileFiles}}
+**{{@key}}:**
+{{this}}
 
-  **5. INFORMATION & CONTENT MANAGEMENT**
-  - News and article curation based on interests
-  - Research automation for ongoing projects
-  - Content backup and organization
-  - Knowledge base updates and maintenance
-  - Personal data aggregation and insights
+{{/each}}
 
-  ## ANALYSIS METHODOLOGY:
+**TASK:** Design personalized background agents that solve specific problems in {{userInfo.firstName}}'s actual life patterns.
 
-  ### STEP 1: PATTERN IDENTIFICATION
-  Analyze the profile data to identify:
-  - **Repetitive tasks** mentioned or implied
-  - **Pain points** in current workflows
-  - **Time-consuming activities** that could be automated
-  - **Missed opportunities** due to manual processes
-  - **Inconsistent behaviors** that could benefit from systematic automation
+Create a JSON response with:
+1. **Summary** of their automation potential based on profile evidence
+2. **Automations array** with 6-8 specific background agents that would genuinely improve their daily life
 
-  ### STEP 2: CONTEXT SYNTHESIS
-  Consider the user's:
-  - **Professional role** and responsibilities
-  - **Personal priorities** and life stage
-  - **Technology comfort level** and existing tools
-  - **Communication patterns** and preferences
-  - **Time constraints** and scheduling challenges
-
-  ### STEP 3: AUTOMATION PRIORITIZATION
-  Rank opportunities by:
-  - **Time savings potential** (high-frequency, time-consuming tasks)
-  - **Stress reduction impact** (error-prone or forgotten tasks)
-  - **Goal advancement** (activities that support stated objectives)
-  - **Implementation feasibility** (available APIs and tools)
-  - **ROI potential** (cost savings vs. time investment)
-
-  ## OUTPUT REQUIREMENTS:
-
-  ### AUTOMATION OPPORTUNITIES REPORT
-
-  Create a comprehensive analysis formatted as follows:
-
-  **EXECUTIVE SUMMARY**
-  - Brief overview of {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} automation potential
-  - Top 3 highest-impact automation opportunities
-  - Estimated time savings and life improvement potential
-
-  **HIGH-PRIORITY AUTOMATIONS**
-  For each automation opportunity, provide:
-  - **Automation Name:** Clear, descriptive title
-  - **Trigger Conditions:** What events/data changes would activate this agent
-  - **Decision Logic:** How the agent would determine appropriate actions
-  - **Automated Actions:** Specific tasks the agent would perform
-  - **Tools/APIs Required:** Technical requirements for implementation
-  - **Expected Impact:** Time saved, stress reduced, goals advanced
-  - **Implementation Complexity:** Simple/Medium/Complex
-
-  **MEDIUM-PRIORITY AUTOMATIONS**
-  Additional opportunities with moderate impact but good ROI
-
-  **FUTURE CONSIDERATIONS**
-  Automation ideas that could become valuable as the user's life evolves
-
-  **INTEGRATION RECOMMENDATIONS**
-  How these automations could work together as a cohesive system
-
-  ## QUALITY STANDARDS:
-
-  **SPECIFICITY:** Base all suggestions on actual profile data, not generic recommendations
-  
-  **PRACTICALITY:** Focus on automations that are technically feasible with current tools and APIs
-  
-  **PERSONALIZATION:** Tailor each automation to {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} specific context, preferences, and constraints
-  
-  **ACTIONABILITY:** Provide enough detail that a developer could begin implementing these automations
-  
-  **VALUE-FOCUSED:** Prioritize automations that would have meaningful impact on quality of life or productivity
-
-  Analyze {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} profile comprehensively and create a detailed automation opportunities report that would genuinely improve their daily life through intelligent background agents. 
+Focus on agents that solve problems they actually have, use services they actually use, and align with their demonstrated approach and preferences. 

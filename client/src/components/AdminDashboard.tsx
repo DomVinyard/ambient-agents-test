@@ -555,10 +555,13 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             ]);
 
             const compiledContent = compileResponse.data.content;
-            const automationContent = automationResponse.data.content;
+            const automationData = automationResponse.data;
 
             // Create both files
             createOrUpdateFile("full.md", compiledContent);
+
+            // Convert automation JSON to readable format
+            const automationContent = formatAutomationData(automationData);
             createOrUpdateFile("automation.md", automationContent);
 
             // Update master progress for compilation completion
@@ -737,10 +740,13 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       ]);
 
       const compiledContent = compileResponse.data.content;
-      const automationContent = automationResponse.data.content;
+      const automationData = automationResponse.data;
 
       // Create both files
       createOrUpdateFile("full.md", compiledContent);
+
+      // Convert automation JSON to readable format
+      const automationContent = formatAutomationData(automationData);
       createOrUpdateFile("automation.md", automationContent);
     } catch (error) {
       console.error("Error compiling profile:", error);
@@ -801,6 +807,77 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
         });
       }
     }
+  };
+
+  const formatAutomationData = (automationData: {
+    summary: string;
+    automations: any[];
+  }): string => {
+    let content = `# Background Automation Opportunities\n\n`;
+
+    content += `## Summary\n${automationData.summary}\n\n`;
+
+    content += `## Recommended Automations\n\n`;
+
+    const priorityOrder = { high: 1, medium: 2, low: 3 };
+    const sortedAutomations = automationData.automations.sort((a, b) => {
+      return (
+        (priorityOrder[a.priority as keyof typeof priorityOrder] || 4) -
+        (priorityOrder[b.priority as keyof typeof priorityOrder] || 4)
+      );
+    });
+
+    sortedAutomations.forEach((automation, index) => {
+      const priorityEmoji =
+        automation.priority === "high"
+          ? "🔥"
+          : automation.priority === "medium"
+          ? "⚡"
+          : "💡";
+      const categoryEmoji =
+        automation.category === "communication"
+          ? "💬"
+          : automation.category === "productivity"
+          ? "⚡"
+          : automation.category === "finance"
+          ? "💳"
+          : automation.category === "health"
+          ? "🏥"
+          : automation.category === "learning"
+          ? "📚"
+          : automation.category === "relationships"
+          ? "👥"
+          : automation.category === "travel"
+          ? "✈️"
+          : automation.category === "shopping"
+          ? "🛒"
+          : "🤖";
+
+      content += `### ${priorityEmoji} ${automation.name}\n`;
+      content += `**Category:** ${categoryEmoji} ${
+        automation.category.charAt(0).toUpperCase() +
+        automation.category.slice(1)
+      }\n`;
+      content += `**Priority:** ${automation.priority.toUpperCase()}\n`;
+      content += `**Complexity:** ${automation.complexity}\n\n`;
+
+      content += `**Trigger:** ${automation.trigger}\n\n`;
+
+      content += `**Actions:**\n`;
+      automation.actions.forEach((action: string) => {
+        content += `- ${action}\n`;
+      });
+      content += `\n`;
+
+      content += `**Evidence:** ${automation.evidence}\n\n`;
+      content += `**Expected Impact:** ${automation.impact}\n\n`;
+
+      if (index < sortedAutomations.length - 1) {
+        content += `---\n\n`;
+      }
+    });
+
+    return content;
   };
 
   return (

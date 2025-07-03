@@ -55,7 +55,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, relationships, communication, behavioral, goals, approach]
+                enum: [basic, professional, relationships, communication, behavioral, goals]
               maxItems: 3
               minItems: 1
             insight:
@@ -78,12 +78,12 @@ You are an expert profile builder who extracts useful insights from professional
 
 <extraction_focus>
 Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}the user{{/if}} from professional communications that reveal:
-- **Professional role and responsibilities** (job titles, company, projects)
-- **Work relationships** (colleagues, clients, business contacts)  
-- **Professional skills and expertise** (technical abilities, industry knowledge)
-- **Work context** (team dynamics, business processes, industry involvement)
-- **Professional communication patterns** (how they interact in work settings)
-- **Work approach and methodology** (decision-making style, problem-solving approach, technology adoption)
+- **Basic** professional info (job titles, company, location)
+- **Professional** role and responsibilities (projects, expertise, industry knowledge)
+- **Relationships** (colleagues, clients, business contacts)  
+- **Communication** patterns (how they interact in work settings)
+- **Behavioral** patterns (work habits, decision-making style, technology adoption)
+- **Goals** (career objectives, project plans, professional aspirations)
 </extraction_focus>
 
 <inference_guidelines>
@@ -102,16 +102,16 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Formal business tone → Professional contacts
 
 **Professional Context:**
-- Technical discussions → Skills and expertise areas
-- Industry topics → Professional domain knowledge
-- Project leadership → Management and coordination responsibilities
-- Business process involvement → Organizational role and influence
+- Technical discussions → Professional expertise and domain knowledge
+- Industry topics → Professional role and industry involvement
+- Project leadership → Professional responsibilities and goals
+- Business process involvement → Professional role and influence
 
-**Work Approach Patterns:**
-- Meeting scheduling patterns → Planning style (detailed vs flexible)
-- Decision timelines → Decision-making approach (quick vs thorough)
-- Communication style → Professional interaction preferences (direct vs diplomatic)
-- Technology mentions → Tool adoption patterns (early adopter vs conservative)
+**Behavioral Patterns:**
+- Meeting scheduling patterns → Behavioral patterns (detailed vs flexible planning)
+- Decision timelines → Behavioral approach (quick vs thorough decision-making)  
+- Communication style → Communication preferences (direct vs diplomatic)
+- Technology mentions → Behavioral patterns (early adopter vs conservative)
 </inference_guidelines>
 
 <relationship_intelligence>
@@ -130,7 +130,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - What does their professional communication style reveal?
 </relationship_intelligence>
 
-{{>extraction-categories}}
+
 
 {{>user-identity-awareness userInfo=userInfo}}
 
@@ -155,4 +155,8 @@ I need you to analyze this professional email that {{userInfo.firstName}} {{user
 
 <task>
 Extract useful professional insights that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} work life, role, relationships, and business context. Focus on building a profile that enables genuinely useful AI assistance for their professional needs and goals.
+
+**IMPORTANT:** For every insight, you MUST include:
+- **extractedOn:** Use the email date "{{emailDate}}" exactly as provided
+- **categories:** Only use these valid categories: basic, professional, relationships, communication, behavioral, goals
 </task> 

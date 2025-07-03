@@ -74,7 +74,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals, approach]
+                enum: [basic, professional, personal, communication, behavioral, accounts, relationships, goals]
               description: "One or more relevant categories - insights can span multiple categories"
               maxItems: 3
               minItems: 1
@@ -106,7 +106,7 @@ Extract insights from {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}
 - **Personal relationships** (who they communicate with and how)  
 - **Life context** (interests, location, lifestyle, plans)
 - **Communication patterns** (style, preferences, authentic voice)
-- **Tools and services** (platforms, accounts, preferences)
+- **Accounts** (platforms, tools, service preferences)
 - **Goals and plans** (future events, projects, aspirations)
 </extraction_focus>
 
@@ -155,8 +155,6 @@ Extract insights from {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}
 - How do they interact with different relationship types?
 </relationship_intelligence>
 
-{{>extraction-categories}}
-
 {{>user-identity-awareness userInfo=userInfo}}
 
 {{role "user"}}
@@ -180,4 +178,8 @@ I need you to analyze this email that {{userInfo.firstName}} {{userInfo.lastName
 
 <task>
 Extract useful profile insights that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} professional life, personal interests, relationships, and communication style from their authentic personal communication. Focus on building a profile that enables genuinely useful AI assistance.
+
+**IMPORTANT:** For every insight, you MUST include:
+- **extractedOn:** Use the email date "{{emailDate}}" exactly as provided  
+- **categories:** Only use these valid categories: basic, professional, personal, communication, behavioral, accounts, relationships, goals
 </task> 

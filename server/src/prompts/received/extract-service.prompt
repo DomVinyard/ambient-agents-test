@@ -8,7 +8,7 @@ input:
   schema:
     type: object
     properties:
-      emailContent:
+      emailContent: 
         type: string
         description: "The main content/body of the email"
       emailMetadata:
@@ -30,11 +30,11 @@ input:
       userInfo:
         type: object
         properties:
-          firstName: 
+          firstName:
             type: string
-          lastName: 
+          lastName:
             type: string
-          email: 
+          email:
             type: string
         required: [firstName, lastName, email]
       emailDate:
@@ -61,7 +61,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [accounts, behavioral, personal, basic, approach]
+                enum: [accounts, behavioral, personal, basic]
               maxItems: 3
               minItems: 1
             insight:
@@ -90,11 +90,11 @@ You are an expert profile builder who extracts useful insights from service emai
 **YOUR MISSION:** Extract what {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} service choices and actions reveal about their lifestyle and priorities.
 
 Focus on USER ACTIONS and VERIFIED RELATIONSHIPS:
-- **Service relationships** (confirmed accounts, active subscriptions, verified usage)
-- **Geographic context** (where they receive services, not where companies are located)
-- **Lifestyle preferences** (what their service choices reveal about priorities)
-- **Spending patterns** (what they actually pay for vs. what they're offered)
-- **Service engagement approach** (how they interact with and choose services)
+- **Accounts** (confirmed accounts, active subscriptions, verified usage)
+- **Basic** geographic context (where they receive services, not where companies are located)
+- **Personal** lifestyle preferences (what their service choices reveal about priorities)
+- **Behavioral** spending patterns (what they actually pay for vs. what they're offered)
+- **Behavioral** patterns in service engagement (how they interact with and choose services)
 
 **CORE PRINCIPLE:** Extract what they DO, not what companies ASK them to do.
 
@@ -140,7 +140,7 @@ Focus on USER ACTIONS and VERIFIED RELATIONSHIPS:
 - Integration choices → User's workflow and productivity approach
 </inference_guidelines>
 
-{{>extraction-categories}}
+
 
 {{>user-identity-awareness userInfo=userInfo}}
 
@@ -165,4 +165,8 @@ I need you to analyze this service email that {{userInfo.firstName}} {{userInfo.
 
 <task>
 Extract useful insights about {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} service relationships, location, lifestyle preferences, and behavioral patterns. Focus on building a profile that enables genuinely useful AI assistance based on their service choices and lifestyle signals.
+
+**IMPORTANT:** For every insight, you MUST include:
+- **extractedOn:** Use the email date "{{emailDate}}" exactly as provided
+- **categories:** Only use these valid categories: accounts, behavioral, personal, basic
 </task> 

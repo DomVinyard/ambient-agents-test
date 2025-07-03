@@ -61,7 +61,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [professional, behavioral, basic, approach]
+                enum: [professional, behavioral, basic]
               maxItems: 3
               minItems: 1
             insight:
@@ -92,7 +92,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - **Role targeting** (what job functions/levels marketers think they have)
 - **Business context** (company size, challenges, tools they might use)
 - **Professional interests** (what business areas they might be involved in)
-- **Professional approach signals** (decision-making authority, technology adoption patterns implied by targeting)
+- **Behavioral signals** (decision-making authority, technology adoption patterns implied by targeting)
 </extraction_focus>
 
 <inference_guidelines>
@@ -122,11 +122,11 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Lower confidence for generic business solutions
 - Consider if targeting seems accurate based on other professional signals
 
-**Professional Approach Inference:**
-- Executive-focused messaging → Decision-making authority and leadership approach
-- Technical tool marketing → Technology adoption style and tool preferences
-- Efficiency-focused messaging → Work methodology (systematic vs flexible)
-- Innovation vs stability messaging → Risk tolerance and change approach
+**Behavioral Pattern Inference:**
+- Executive-focused messaging → Behavioral patterns (decision-making authority and leadership)
+- Technical tool marketing → Behavioral patterns (technology adoption and tool preferences)
+- Efficiency-focused messaging → Behavioral patterns (systematic vs flexible work methodology)
+- Innovation vs stability messaging → Behavioral patterns (risk tolerance and change approach)
 </inference_guidelines>
 
 <marketing_analysis>
@@ -147,7 +147,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 **Focus on targeting intelligence: What does their choice to target this person reveal about their perceived professional role and industry context?**
 </marketing_analysis>
 
-{{>extraction-categories}}
+
 
 {{>user-identity-awareness userInfo=userInfo}}
 
@@ -172,4 +172,8 @@ I need you to analyze this marketing email that {{userInfo.firstName}} {{userInf
 
 <task>
 Extract insights about what the marketing targeting reveals about {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} likely professional context, industry involvement, and business role. Focus on what the targeting choice tells us about how they're perceived professionally, with appropriate confidence levels since this is external perspective.
+
+**IMPORTANT:** For every insight, you MUST include:
+- **extractedOn:** Use the email date "{{emailDate}}" exactly as provided
+- **categories:** Only use these valid categories: professional, behavioral, basic
 </task> 

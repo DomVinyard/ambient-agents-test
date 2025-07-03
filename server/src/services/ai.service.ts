@@ -91,13 +91,7 @@ export class AIService {
     const promptText = renderedPrompt.messages
       .map(msg => msg.content.map(part => 'text' in part ? part.text : '').join(''))
       .join('\n');
-    
-    // Log rendered prompt for debugging
-    console.log(`\n🎯 RENDERED PROMPT: ${filename}.prompt`);
-    console.log('='.repeat(80));
-    console.log(promptText);
-    console.log('='.repeat(80));
-    
+      
     return {
       modelName,
       promptText,
@@ -134,8 +128,6 @@ export class AIService {
         senderDomain: fromDomain,
         to
       };
-
-      console.log('🔍 Classifying email during fetch...');
       const { modelName: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
         await this.loadPromptFile('received/classify-email', {
           emailContent,
@@ -152,7 +144,6 @@ export class AIService {
       });
 
       const { classification, confidence, reasoning } = classifyResult.object;
-      console.log(`📋 Email classified as: ${classification} (confidence: ${confidence}) - ${reasoning}`);
 
       return {
         emailType: classification,
@@ -371,8 +362,6 @@ export class AIService {
         prompt: extractPrompt,
         ...extractConfig
       });
-
-      console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${extractPromptName}`);
       return extractResult.object.inferences;
 
     } catch (error) {
@@ -490,7 +479,6 @@ export class AIService {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
       // Step 1: Classify the email type
-      console.log('🔍 Classifying email type...');
       const { modelName: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
         await this.loadPromptFile('received/classify-email', {
           emailContent,
@@ -507,7 +495,6 @@ export class AIService {
       });
 
       const { classification, confidence, reasoning } = classifyResult.object;
-      console.log(`📋 Email classified as: ${classification} (confidence: ${confidence}) - ${reasoning}`);
 
       // Step 2: Route to specialized extraction prompt
       const extractPromptMap = {
@@ -548,7 +535,6 @@ export class AIService {
         ...extractConfig
       });
 
-      console.log(`✅ Extracted ${extractResult.object.inferences.length} insights using ${classification} prompt`);
       return { 
         insights: extractResult.object.inferences,
         classification: {
@@ -600,8 +586,7 @@ export class AIService {
         isBehavioral: category === 'behavioral',
         isAccounts: category === 'accounts',
         isRelationships: category === 'relationships',
-        isGoals: category === 'goals',
-        isApproach: category === 'approach'
+        isGoals: category === 'goals'
       };
 
       // Load and render the blend-profile prompt
@@ -673,7 +658,7 @@ export class AIService {
   }: {
     profileFiles: Record<string, string>;
     userInfo: any;
-  }): Promise<string> {
+  }): Promise<{ summary: string; automations: any[] }> {
     try {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
@@ -691,7 +676,10 @@ export class AIService {
         ...config
       });
 
-      return result.object.content;
+      return {
+        summary: result.object.summary,
+        automations: result.object.automations
+      };
 
     } catch (error) {
       console.error('Error in AI analyzeAutomation:', error);

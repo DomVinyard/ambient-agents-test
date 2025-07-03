@@ -61,7 +61,7 @@ output:
               type: array
               items:
                 type: string
-                enum: [accounts, personal, professional, approach]
+                enum: [accounts, personal, professional]
               description: "Newsletter insights: subscription (accounts) and topic interests (personal/professional)"
               maxItems: 3
               minItems: 1
@@ -122,7 +122,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - Educational content choices → Learning methodology (structured vs exploratory)
 </inference_guidelines>
 
-{{>extraction-categories}}
+
 
 {{>user-identity-awareness userInfo=userInfo}}
 
@@ -147,4 +147,8 @@ I need you to analyze this newsletter that {{userInfo.firstName}} {{userInfo.las
 
 <task>
 Extract subscription relationships and topic interests that help understand {{#if userInfo.firstName}}{{userInfo.firstName}}'s{{else}}the user's{{/if}} information consumption patterns and subject area interests. Focus on what their subscription choice reveals about their professional and personal interests rather than the newsletter's specific content.
+
+**IMPORTANT:** For every insight, you MUST include:
+- **extractedOn:** Use the email date "{{emailDate}}" exactly as provided
+- **categories:** Only use these valid categories: accounts, personal, professional
 </task> 
