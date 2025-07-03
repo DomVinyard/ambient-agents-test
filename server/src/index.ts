@@ -45,15 +45,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Gmail OAuth flow
+// Gmail OAuth flow - Admin only
 app.get('/auth/gmail', (req, res) => {
-  const mode = req.query.mode as string || 'user';
-  console.log(`Starting Gmail OAuth flow for mode: ${mode}`);
+  const mode = 'admin'; // Only admin mode supported
+  console.log(`Starting Gmail OAuth flow for admin mode`);
   const url = gmailService.generateAuthUrl(mode);
   res.redirect(url);
 });
 
-// OAuth callback
+// OAuth callback - Admin only
 app.get('/auth/gmail/callback', async (req, res) => {
   console.log('Received OAuth callback');
   const code = req.query.code as string;
@@ -64,28 +64,20 @@ app.get('/auth/gmail/callback', async (req, res) => {
     return res.status(400).send('Missing code');
   }
   
-  // Extract mode from state parameter
-  const mode = state || 'user';
+  // Always admin mode
+  const mode = 'admin';
   
   try {
     const { tokens } = await gmailService.getToken(code);
-    console.log(`Successfully obtained Gmail tokens for mode: ${mode}`);
+    console.log(`Successfully obtained Gmail tokens for admin mode`);
     const tokensParam = encodeURIComponent(JSON.stringify(tokens));
     
-    // Redirect based on mode
-    if (mode === 'admin') {
-      res.redirect(`http://localhost:3000/admin?gmail=success&tokens=${tokensParam}&mode=${mode}`);
-    } else {
-      res.redirect(`http://localhost:3000/?gmail=success&tokens=${tokensParam}&mode=${mode}`);
-    }
+    // Always redirect to admin
+    res.redirect(`http://localhost:3000/admin?gmail=success&tokens=${tokensParam}&mode=${mode}`);
   } catch (err) {
     console.error('Error in OAuth callback:', err);
-    // Redirect to appropriate error page based on mode
-    if (mode === 'admin') {
-      res.redirect('http://localhost:3000/admin?gmail=error');
-    } else {
-      res.redirect('http://localhost:3000/?gmail=error');
-    }
+    // Always redirect to admin error page
+    res.redirect('http://localhost:3000/admin?gmail=error');
   }
 });
 

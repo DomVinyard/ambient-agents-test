@@ -1,5 +1,14 @@
-import { Box, Flex, Heading, Menu, MenuButton, MenuList, MenuItem, IconButton } from '@chakra-ui/react';
-import { MoreVertical, LogOut, Trash2 } from 'lucide-react';
+import {
+  Box,
+  Flex,
+  Heading,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+} from "@chakra-ui/react";
+import { MoreVertical, LogOut, Trash2 } from "lucide-react";
 
 interface ToolbarProps {
   onLogout: () => void;
@@ -8,7 +17,7 @@ interface ToolbarProps {
 
 export default function Toolbar({ onLogout, onDeleteAllData }: ToolbarProps) {
   return (
-    <Box 
+    <Box
       borderBottom="1px solid"
       borderColor="gray.200"
       px={4}
@@ -18,10 +27,10 @@ export default function Toolbar({ onLogout, onDeleteAllData }: ToolbarProps) {
       <Flex justify="space-between" align="center">
         <Flex align="center" gap={4}>
           <Heading size="md" color="gray.800">
-          Sauna Onboard
+            AI Insight Extract
           </Heading>
         </Flex>
-        
+
         <Flex align="center" gap={3}>
           <Menu>
             <MenuButton
@@ -32,7 +41,11 @@ export default function Toolbar({ onLogout, onDeleteAllData }: ToolbarProps) {
               aria-label="Menu"
             />
             <MenuList>
-              <MenuItem icon={<Trash2 size={16} />} onClick={onDeleteAllData} color="red.600">
+              <MenuItem
+                icon={<Trash2 size={16} />}
+                onClick={onDeleteAllData}
+                color="red.600"
+              >
                 Delete all data
               </MenuItem>
               <MenuItem icon={<LogOut size={16} />} onClick={onLogout}>
@@ -44,4 +57,4 @@ export default function Toolbar({ onLogout, onDeleteAllData }: ToolbarProps) {
       </Flex>
     </Box>
   );
-} 
+}
