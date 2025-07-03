@@ -2,44 +2,6 @@
 model: openai/gpt-4o-mini
 config:
   temperature: 0.1
-response_format:
-  type: json_schema
-  json_schema:
-    name: "extract_personal_insights"
-    strict: true
-    schema:
-      type: object
-      properties:
-        inferences:
-          type: array
-          maxItems: 12
-          items:
-            type: object
-            properties:
-              reasoning:
-                type: string
-                description: "Step-by-step analysis of how this personal insight was derived from the email"
-              categories:
-                type: array
-                items:
-                  type: string
-                  enum: ["basic", "personal", "relationships", "goals", "communication", "behavioral"]
-                maxItems: 3
-                minItems: 1
-              insight:
-                type: string
-              confidence:
-                type: number
-                minimum: 0.5
-                maximum: 1
-              evidence:
-                type: string
-              extractedOn:
-                type: string
-            required: ["reasoning", "categories", "insight", "confidence", "evidence", "extractedOn"]
-            additionalProperties: false
-      required: ["inferences"]
-      additionalProperties: false
 input:
   schema:
     type: object
@@ -75,6 +37,7 @@ input:
         required: [firstName, lastName, email]
     required: [emailContent, emailDate, todaysDate, emailMetadata, userInfo]
 output:
+  format: json
   schema:
     type: object
     properties:
@@ -92,6 +55,7 @@ output:
               items:
                 type: string
                 enum: ["basic", "personal", "relationships", "goals", "communication", "behavioral"]
+              description: "Must be one of: basic, personal, relationships, goals, communication, behavioral"
               maxItems: 3
               minItems: 1
             insight:
@@ -99,9 +63,9 @@ output:
               description: "Clear factual statement about the user"
             confidence:
               type: number
-              minimum: 0.5
+              minimum: 0
               maximum: 1
-              description: "Confidence level based on evidence strength"
+              description: "Confidence level based on evidence strength. Must be between 0.5 and 1.0"
             evidence:
               type: string
               description: "Key quote or reference from the email"
@@ -125,6 +89,7 @@ Extract insights about {{#if userInfo.firstName}}{{userInfo.firstName}}{{else}}t
 - **Personal context** (living situation, lifestyle, personal goals)
 - **Social patterns** (how they interact with personal contacts)
 - **Geographic and lifestyle context** (where they live, how they spend time)
+These are not categories, they are just examples of what you can extract from the email.
 </extraction_focus>
 
 <inference_guidelines>

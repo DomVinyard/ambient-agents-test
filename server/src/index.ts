@@ -26,7 +26,7 @@ const aiService = new AIService();
 // Middleware
 app.use(cors());
 app.use(helmet());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for batch email processing
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -245,6 +245,113 @@ app.post('/api/gmail/extract-insights', async (req, res) => {
       error: err instanceof Error ? err.message : 'Unknown error'
     });
     res.status(500).json({ error: 'Failed to extract insights', details: err instanceof Error ? err.message : err });
+  }
+});
+
+// NEW: Extract insights from multiple emails in a batch (step 2 - batched)
+app.post('/api/gmail/extract-insights-batch', async (req, res) => {
+  const { tokens, emails, userInfo } = req.body;
+  const sessionId = getSessionId(req);
+  
+  if (!tokens || !emails || !Array.isArray(emails) || emails.length === 0) {
+    return res.status(400).json({ error: 'Missing tokens, emails array, or empty batch' });
+  }
+
+  console.log(`🚀 Processing batch of ${emails.length} emails for session: ${sessionId}`);
+
+  try {
+    await pusherService.trigger(`${sessionId}`, 'batch-insights-start', { 
+      batchSize: emails.length 
+    });
+
+    // Process all emails in parallel with proper error handling
+    const results = await Promise.all(
+      emails.map(async (emailData, index) => {
+        try {
+          // Convert frontend email format to the format expected by AI service
+          const targetEmail = {
+            id: emailData.id,
+            snippet: emailData.snippet,
+            fullBody: emailData.fullBody,
+            internalDate: new Date(emailData.date).getTime().toString(),
+            labelIds: emailData.labelIds || [],
+            emailType: emailData.emailType || 'unknown',
+            threadId: emailData.threadId,
+            classification: emailData.classification,
+            payload: {
+              headers: [
+                { name: 'Subject', value: emailData.subject },
+                { name: 'From', value: emailData.from },
+                { name: 'To', value: emailData.to || '' },
+                { name: 'Cc', value: emailData.cc || '' },
+                { name: 'Date', value: emailData.date }
+              ]
+            }
+          };
+
+          // Use the combined classification + extraction method
+          const result = await aiService.extractInsightsWithClassification(targetEmail, userInfo);
+          
+          // Send progress update for this individual email
+          await pusherService.trigger(`${sessionId}`, 'batch-insights-progress', {
+            emailId: emailData.id,
+            processed: index + 1,
+            total: emails.length,
+            subject: emailData.subject.substring(0, 50)
+          });
+
+          return {
+            emailId: emailData.id,
+            insights: result.insights || [],
+            classification: result.classification || null,
+            success: true,
+            error: null
+          };
+
+        } catch (error: any) {
+          console.error(`❌ Failed to extract insights from email "${emailData.subject}":`, error?.message);
+          
+          return {
+            emailId: emailData.id,
+            insights: [],
+            classification: null,
+            success: false,
+            error: error?.message || 'Unknown error'
+          };
+        }
+      })
+    );
+
+    // Calculate success stats
+    const successful = results.filter(r => r.success).length;
+    const failed = results.length - successful;
+    const totalInsights = results.reduce((sum, r) => sum + r.insights.length, 0);
+
+    await pusherService.trigger(`${sessionId}`, 'batch-insights-complete', {
+      batchSize: emails.length,
+      successful,
+      failed,
+      totalInsights
+    });
+
+    console.log(`✅ Batch complete: ${successful}/${emails.length} emails processed, ${totalInsights} insights extracted`);
+    
+    res.json({ 
+      results,
+      stats: {
+        total: emails.length,
+        successful,
+        failed,
+        totalInsights
+      }
+    });
+
+  } catch (err) {
+    console.error('Error in batch insights extraction:', err);
+    await pusherService.trigger(`${sessionId}`, 'batch-insights-error', {
+      error: err instanceof Error ? err.message : 'Unknown error'
+    });
+    res.status(500).json({ error: 'Failed to process batch', details: err instanceof Error ? err.message : err });
   }
 });
 

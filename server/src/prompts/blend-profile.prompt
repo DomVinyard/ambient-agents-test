@@ -2,19 +2,6 @@
 model: openai/gpt-4.1
 config:
   temperature: 0.2
-response_format:
-  type: json_schema
-  json_schema:
-    name: "blend_profile"
-    strict: true
-    schema:
-      type: object
-      properties:
-        content:
-          type: string
-          description: "The blended profile content for this specific category only, with confidence attribution"
-      required: ["content"]
-      additionalProperties: false
 input:
   schema:
     type: object
@@ -68,6 +55,7 @@ input:
         description: "Today's date in YYYY-MM-DD format for temporal context and aging analysis"
     required: [category, newInsights, userInfo, todaysDate]
 output:
+  format: json
   schema:
     type: object
     properties:

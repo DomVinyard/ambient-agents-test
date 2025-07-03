@@ -3,6 +3,7 @@ model: openai/gpt-4o-mini
 config:
   temperature: 0.3
 output:
+  format: json
   schema:
     type: object
     properties:

@@ -1,5 +1,4 @@
 import axios from 'axios';
-import pLimit from 'p-limit';
 import { storageService } from './storage.service';
 
 export interface ProfileBuildOptions {
@@ -17,12 +16,11 @@ export interface ProfileBuildResult {
   successfulEmails: number;
   totalEmails: number;
   profileFiles: Record<string, string>;
+  automationData?: { summary: string; automations: any[] };
   errorCount: number;
 }
 
 class ProfileService {
-  private aiLimit = pLimit(200);
-
   private getAuthTokens() {
     const authData = localStorage.getItem('ambient-agents-auth');
     if (!authData) {
@@ -137,120 +135,137 @@ class ProfileService {
     try {
       const tokens = this.getAuthTokens();
       
-      // Step 1: Extract insights from all emails
+      // Step 1: Extract insights from all emails using BATCH processing
+      console.log(`🚀 Starting batch processing for ${currentEmails.length} emails`);
+      
       let processedCount = 0;
       let currentErrorCount = 0;
+      const BATCH_SIZE = 150; // Reduced from 100 to avoid payload size issues
       
-      const extractPromises = currentEmails.map((email: any, index: number) => 
-        this.aiLimit(async () => {
-          try {
-            console.log(`Processing email ${index + 1}/${currentEmails.length}: ${email.subject.substring(0, 50)}...`);
-            
-            const response = await axios.post('http://localhost:3001/api/gmail/extract-insights', {
-              tokens,
-              emailId: email.id,
-              emailData: email,
-              userInfo: currentUserInfo,
-              sessionId: 'default'
-            });
-          
-            const insights = response.data.insights || [];
-            const classification = response.data.classification;
-            
-            // Emit insights in real-time for status updates
-            if (insights.length > 0 && options.onInsightReceived) {
-              options.onInsightReceived(insights);
+              // Split emails into batches of 50
+      const emailBatches = [];
+      for (let i = 0; i < currentEmails.length; i += BATCH_SIZE) {
+        emailBatches.push(currentEmails.slice(i, i + BATCH_SIZE));
+      }
+
+      console.log(`📦 Created ${emailBatches.length} batches of ${BATCH_SIZE} emails each`);
+
+      // Store insights by email for aggregation
+      const insightsByEmail: Record<string, any[]> = {};
+
+      // Process batches sequentially to avoid overwhelming the server
+      for (let batchIndex = 0; batchIndex < emailBatches.length; batchIndex++) {
+        const batch = emailBatches[batchIndex];
+        console.log(`📤 Processing batch ${batchIndex + 1}/${emailBatches.length} (${batch.length} emails)`);
+
+        try {
+          // Send batch to server
+          const response = await axios.post('http://localhost:3001/api/gmail/extract-insights-batch', {
+            tokens,
+            emails: batch,
+            userInfo: currentUserInfo,
+            sessionId: 'default'
+          });
+
+          const { results, stats } = response.data;
+
+          // Process batch results
+          results.forEach((result: any) => {
+            if (result.success) {
+              const { emailId, insights, classification } = result;
+
+              // Store insights for this email
+              insightsByEmail[emailId] = insights;
+
+              // Emit insights in real-time for status updates
+              if (insights.length > 0 && options.onInsightReceived) {
+                options.onInsightReceived(insights);
+              }
+            } else {
+              currentErrorCount++;
+              console.error(`❌ Failed to process email ${result.emailId}:`, result.error);
             }
-            
-            return {
-              emailId: email.id,
-              insights,
-              classification
-            };
-          } catch (error: any) {
-            console.error(`❌ Failed to extract insights from email "${email.subject}":`, error?.response?.data?.error || error?.message);
-            currentErrorCount++;
-            return {
-              emailId: email.id,
-              insights: []
-            };
-          } finally {
-            processedCount++;
-            options.onProgressUpdate?.('insightsProgress', { processed: processedCount, total: currentEmails.length });
-          }
-        })
-      );
-      
-      const extractResults = await Promise.all(extractPromises);
-      const successfulEmails = extractResults.filter(r => r.insights.length > 0).length;
-      
-      // Update stored emails with fresh classification data
-      const updatedEmails = currentEmails.map(email => {
-        const extractResult = extractResults.find(r => r.emailId === email.id);
-        if (extractResult?.classification) {
-          return { ...email, classification: extractResult.classification };
+          });
+
+          // Update progress for the entire batch
+          processedCount += batch.length;
+          options.onProgressUpdate?.('insightsProgress', { processed: processedCount, total: currentEmails.length });
+
+          console.log(`✅ Batch ${batchIndex + 1} complete: ${stats.successful}/${stats.total} emails processed, ${stats.totalInsights} insights extracted`);
+
+        } catch (batchError: any) {
+          console.error(`❌ Batch ${batchIndex + 1} failed:`, batchError?.message);
+          currentErrorCount += batch.length;
+          
+          // Still update progress even for failed batches
+          processedCount += batch.length;
+          options.onProgressUpdate?.('insightsProgress', { processed: processedCount, total: currentEmails.length });
         }
-        return email;
-      });
-      
-      // Store updated emails with classification data
-      await storageService.setEmails(updatedEmails);
+      }
+
+      // Count successful emails
+      const successfulEmails = Object.keys(insightsByEmail).length;
+
+      // Update stored emails with classification data (extract from results if available)
+      // Note: This is simplified since batch processing returns results differently
+      await storageService.setInsights(insightsByEmail);
       
       // Step 2: Group insights by category
       const allInsights: any[] = [];
-      extractResults.forEach(({ insights }) => {
-        allInsights.push(...insights);
+      Object.values(insightsByEmail).forEach((emailInsights) => {
+        allInsights.push(...emailInsights);
       });
       
-      const insightsByCategory: Record<string, any[]> = {};
+      const insightsByCategoryMap: Record<string, any[]> = {};
       allInsights.forEach(insight => {
         insight.categories.forEach((category: string) => {
-          if (!insightsByCategory[category]) {
-            insightsByCategory[category] = [];
+          if (!insightsByCategoryMap[category]) {
+            insightsByCategoryMap[category] = [];
           }
-          insightsByCategory[category].push(insight);
+          insightsByCategoryMap[category].push(insight);
         });
       });
       
       // Step 3: Generate profile files
-      const categoryCount = Object.keys(insightsByCategory).length;
+      const categoryCount = Object.keys(insightsByCategoryMap).length;
       options.onProgressUpdate?.('profileProgress', { processed: 0, total: categoryCount });
       
       let profileProcessedCount = 0;
       let profileErrorCount = 0;
       const generatedProfileFiles: Record<string, string> = {};
-      
-      const applyPromises = Object.entries(insightsByCategory).map(async ([category, categoryInsights]: [string, any[]]) => {
-        const fileName = `${category}.md`;
-        
-        try {
-          const response = await axios.post('http://localhost:3001/api/ai/blend-profile', {
-            tokens,
-            category,
-            newInsights: categoryInsights,
-            existingContent: null,
-            userInfo: currentUserInfo,
-            sessionId: 'default'
-          });
-          
-          const blendedContent = response.data.content;
-          generatedProfileFiles[fileName] = blendedContent;
-          
-          return { category, success: true };
-        } catch (error) {
-          console.error(`Error applying insights to ${category}:`, error);
-          profileErrorCount++;
-          return { category, success: false };
-        } finally {
-          profileProcessedCount++;
-          options.onProgressUpdate?.('profileProgress', { processed: profileProcessedCount, total: categoryCount });
+
+      const applyPromises = Object.entries(insightsByCategoryMap).map(
+        async ([category, categoryInsights]: [string, any[]]) => {
+          try {
+            const response = await axios.post('http://localhost:3001/api/ai/blend-profile', {
+              tokens,
+              category,
+              newInsights: categoryInsights,
+              existingContent: null,
+              userInfo: currentUserInfo,
+              sessionId: 'default'
+            });
+
+            const blendedContent = response.data.content;
+            generatedProfileFiles[`${category}.md`] = blendedContent;
+
+            return { category, success: true };
+          } catch (error) {
+            console.error(`Error applying insights to ${category}:`, error);
+            profileErrorCount++;
+            return { category, success: false };
+          } finally {
+            profileProcessedCount++;
+            options.onProgressUpdate?.('profileProgress', { processed: profileProcessedCount, total: categoryCount });
+          }
         }
-      });
-      
+      );
+
       const applyResults = await Promise.all(applyPromises);
       const successfulCategories = applyResults.filter(r => r.success).length;
       
       // Step 4: Compile final profiles
+      let automationData = undefined;
       if (successfulCategories > 0) {
         options.onProgressUpdate?.('compileProgress', { processed: 0, total: 2 });
         
@@ -272,8 +287,8 @@ class ProfileService {
           
           generatedProfileFiles['full.md'] = compileResponse.data.content;
           
-          // Convert automation JSON to readable format
-          const automationData = automationResponse.data;
+          // Convert automation JSON to readable format and store raw data
+          automationData = automationResponse.data;
           const automationContent = this.formatAutomationData(automationData);
           generatedProfileFiles['automation.md'] = automationContent;
           
@@ -289,6 +304,7 @@ class ProfileService {
         successfulEmails,
         totalEmails: currentEmails.length,
         profileFiles: generatedProfileFiles,
+        automationData,
         errorCount: currentErrorCount + profileErrorCount
       };
       

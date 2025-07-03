@@ -68,6 +68,11 @@ export class AIService {
     // Extract the model name from metadata
     const modelName = parsedPrompt.model?.split('/')[1] || 'gpt-4o-mini';
     
+    // Create OpenAI model with structured outputs enabled (strict mode)
+    const model = openai(modelName, {
+      structuredOutputs: true
+    });
+    
     // Extract and convert the output schema
     const outputSchema = parsedPrompt.output?.schema;
     let zodSchemaInstance: z.ZodTypeAny;
@@ -93,7 +98,7 @@ export class AIService {
       .join('\n');
       
     return {
-      modelName,
+      model, // Return the configured model instead of just the name
       promptText,
       schema: zodSchemaInstance,
       config: parsedPrompt.config || {}
@@ -128,7 +133,7 @@ export class AIService {
         senderDomain: fromDomain,
         to
       };
-      const { modelName: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
+      const { model: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
         await this.loadPromptFile('received/classify-email', {
           emailContent,
           emailDate,
@@ -137,7 +142,7 @@ export class AIService {
         });
 
       const classifyResult = await generateObject({
-        model: openai(classifyModel),
+        model: classifyModel,
         schema: classifySchema,
         prompt: classifyPrompt,
         ...classifyConfig
@@ -217,7 +222,7 @@ export class AIService {
       if (emailObj.emailType === 'sent') {
         const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
         
-        const { modelName, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
+        const { model, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
           emailContent,
           emailDate,
           emailMetadata,
@@ -226,7 +231,7 @@ export class AIService {
         });
 
         const result = await generateObject({
-          model: openai(modelName),
+          model,
           schema,
           prompt: promptText,
           ...config
@@ -311,7 +316,7 @@ export class AIService {
       if (emailObj.emailType === 'sent') {
         const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
         
-        const { modelName, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
+        const { model, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
           emailContent,
           emailDate,
           emailMetadata,
@@ -320,7 +325,7 @@ export class AIService {
         });
 
         const result = await generateObject({
-          model: openai(modelName),
+          model,
           schema,
           prompt: promptText,
           ...config
@@ -347,7 +352,7 @@ export class AIService {
       console.log(`⚡ Using specialized prompt: ${extractPromptName} (based on existing classification: ${emailObj.classification?.emailType})`);
       const todaysDate = new Date().toISOString().split('T')[0];
       
-      const { modelName: extractModel, promptText: extractPrompt, schema: extractSchema, config: extractConfig } = 
+      const { model: extractModel, promptText: extractPrompt, schema: extractSchema, config: extractConfig } = 
         await this.loadPromptFile(extractPromptName, {
           emailContent,
           emailDate,
@@ -357,7 +362,7 @@ export class AIService {
         });
 
       const extractResult = await generateObject({
-        model: openai(extractModel),
+        model: extractModel,
         schema: extractSchema,
         prompt: extractPrompt,
         ...extractConfig
@@ -430,7 +435,7 @@ export class AIService {
       if (emailObj.emailType === 'sent') {
         const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
         
-        const { modelName, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
+        const { model, promptText, schema, config } = await this.loadPromptFile('extract-insights-sent', {
           emailContent,
           emailDate,
           emailMetadata,
@@ -438,7 +443,7 @@ export class AIService {
         });
 
         const result = await generateObject({
-          model: openai(modelName),
+          model,
           schema,
           prompt: promptText,
           ...config
@@ -479,7 +484,7 @@ export class AIService {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
       // Step 1: Classify the email type
-      const { modelName: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
+      const { model: classifyModel, promptText: classifyPrompt, schema: classifySchema, config: classifyConfig } = 
         await this.loadPromptFile('received/classify-email', {
           emailContent,
           emailDate,
@@ -488,7 +493,7 @@ export class AIService {
         });
 
       const classifyResult = await generateObject({
-        model: openai(classifyModel),
+        model: classifyModel,
         schema: classifySchema,
         prompt: classifyPrompt,
         ...classifyConfig
@@ -519,7 +524,7 @@ export class AIService {
       }
 
       console.log(`⚡ Using specialized prompt: ${extractPromptName}`);
-      const { modelName: extractModel, promptText: extractPrompt, schema: extractSchema, config: extractConfig } = 
+      const { model: extractModel, promptText: extractPrompt, schema: extractSchema, config: extractConfig } = 
         await this.loadPromptFile(extractPromptName, {
           emailContent,
           emailDate,
@@ -529,7 +534,7 @@ export class AIService {
         });
 
       const extractResult = await generateObject({
-        model: openai(extractModel),
+        model: extractModel,
         schema: extractSchema,
         prompt: extractPrompt,
         ...extractConfig
@@ -590,7 +595,7 @@ export class AIService {
       };
 
       // Load and render the blend-profile prompt
-      const { modelName, promptText, schema, config } = await this.loadPromptFile('blend-profile', {
+      const { model, promptText, schema, config } = await this.loadPromptFile('blend-profile', {
         category,
         ...categoryFlags,
         newInsights: insightsWithLanguage,
@@ -600,7 +605,7 @@ export class AIService {
       });
 
       const result = await generateObject({
-        model: openai(modelName),
+        model,
         schema,
         prompt: promptText,
         ...config
@@ -628,14 +633,14 @@ export class AIService {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
       // Load and render the compile-profile prompt
-      const { modelName, promptText, schema, config } = await this.loadPromptFile('compile-profile', {
+      const { model, promptText, schema, config } = await this.loadPromptFile('compile-profile', {
         profileFiles,
         userInfo,
         todaysDate
       });
 
       const result = await generateObject({
-        model: openai(modelName),
+        model,
         schema,
         prompt: promptText,
         ...config
@@ -663,14 +668,14 @@ export class AIService {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
       
       // Load and render the analyze-automation prompt
-      const { modelName, promptText, schema, config } = await this.loadPromptFile('analyze-automation', {
+      const { model, promptText, schema, config } = await this.loadPromptFile('analyze-automation', {
         profileFiles,
         userInfo,
         todaysDate
       });
 
       const result = await generateObject({
-        model: openai(modelName),
+        model,
         schema,
         prompt: promptText,
         ...config
@@ -705,14 +710,14 @@ export class AIService {
       const todaysDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
       // Load and render the generate-status prompt
-      const { modelName, promptText, schema, config } = await this.loadPromptFile('generate-status', {
+      const { model, promptText, schema, config } = await this.loadPromptFile('generate-status', {
         insights,
         userInfo,
         todaysDate
       });
 
       const result = await generateObject({
-        model: openai(modelName),
+        model,
         schema,
         prompt: promptText,
         ...config

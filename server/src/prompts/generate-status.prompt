@@ -4,6 +4,7 @@ config:
   temperature: 0.6
   maxTokens: 100
 output:
+  format: json
   schema:
     type: object
     properties:
@@ -80,15 +81,15 @@ user: |
   **MOST VALUABLE:** Insights that would help an AI assistant understand this person's core identity and context.
 
   ## OUTPUT FORMAT:
-  Generate a SHORT, direct message (3-8 words) that states something meaningful about WHO they are:
+  Generate a SHORT, direct message (3-8 words) that states something meaningful about WHO they MIGHT BE:
 
   **Effective status message patterns:**
-  - "You're a [occupation]" - Professional identity
-  - "You live in [location]" - Geographic context
-  - "You're really into [hobby/interest]" - Personal passion
-  - "You have [family/characteristic]" - Personal trait
-  - "You work in [industry]" - Professional context
-  - "You [defining action/behavior]" - Characteristic behavior
+  - "Checking if you are an [occupation]" - Professional identity
+  - "Working out if you live in [location]" - Geographic context
+  - "Seeing if you are really into [hobby/interest]" - Personal passion
+  - "Figuring out if you have [family/characteristic]" - Personal trait
+  - "Trying to understand if you work in [industry]" - Professional context
+  - "Seeing if you [defining action/behavior]" - Characteristic behavior
 
   **GOAL:** Create a short message that helps establish meaningful context about who this person is.
 
@@ -107,3 +108,4 @@ user: |
   5. **Generate** a short status message about that insight
 
   Pick the most IDENTITY-REVEALING insight and return a short status message about that person's core identity. 
+  Always express as checking - rather than stating as facts

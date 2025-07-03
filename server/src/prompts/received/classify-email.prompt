@@ -3,6 +3,7 @@ model: openai/gpt-4o-mini
 config:
   temperature: 0.1
 output:
+  format: json
   schema:
     type: object
     properties:
@@ -15,9 +16,9 @@ output:
         description: "The most appropriate category for this email"
       confidence:
         type: number
-        minimum: 0.6
+        minimum: 0
         maximum: 1.0
-        description: "Confidence in the classification decision"
+        description: "Confidence in the classification decision. Must be between 0.6 and 1.0"
     required: ["reasoning", "classification", "confidence"]
     additionalProperties: false
 input:

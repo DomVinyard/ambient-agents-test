@@ -19,6 +19,7 @@ interface AnimatedProfileTransitionProps {
 
   // Animation state
   isComplete: boolean;
+  skipLoadingDelay?: boolean; // Skip the 500ms delay when transitioning from automations
 
   // Preview mode props (optional)
   isPreviewMode?: boolean;
@@ -35,6 +36,7 @@ export default function AnimatedProfileTransition({
   onConfirm,
   onLogout,
   isComplete,
+  skipLoadingDelay = false,
   isPreviewMode = false,
   onEnterEditMode,
 }: AnimatedProfileTransitionProps) {
@@ -44,13 +46,18 @@ export default function AnimatedProfileTransition({
   // Start transition when complete
   useEffect(() => {
     if (isComplete) {
-      // Small delay before starting transition
-      const timer = setTimeout(() => {
+      if (skipLoadingDelay) {
+        // Immediate transition when coming from automations
         setShowProfile(true);
-      }, 500);
-      return () => clearTimeout(timer);
+      } else {
+        // Small delay before starting transition for normal flow
+        const timer = setTimeout(() => {
+          setShowProfile(true);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isComplete]);
+  }, [isComplete, skipLoadingDelay]);
 
   // Handle button clicks based on current state
   const handleButtonClick = () => {
@@ -155,7 +162,7 @@ export default function AnimatedProfileTransition({
                   >
                     {isPreviewMode && !isEditMode
                       ? "What can I help you with?"
-                      : "Here's what I found, you can edit out anything you don't want me to know."}
+                      : "I wrote a bio from your emails, you can edit out anything that I didn't get right."}
                   </Text>
                 </Box>
               </Box>
@@ -163,7 +170,8 @@ export default function AnimatedProfileTransition({
           )}
 
           {/* Speech bubble that expands into editor */}
-          <Box
+          <motion.div
+            layout
             style={{
               position: "relative",
               width: showProfile ? "100%" : "320px",
@@ -171,6 +179,7 @@ export default function AnimatedProfileTransition({
               flexShrink: showProfile ? 1 : 0,
               minHeight: showProfile ? "400px" : "auto",
             }}
+            transition={{ layout: { duration: 0.3, ease: "easeInOut" } }}
           >
             <AnimatePresence mode="wait">
               {!showProfile ? (
@@ -292,7 +301,7 @@ export default function AnimatedProfileTransition({
                 </motion.div>
               )}
             </AnimatePresence>
-          </Box>
+          </motion.div>
 
           {/* Loading state progress bar */}
           {!showProfile && (
@@ -344,9 +353,7 @@ export default function AnimatedProfileTransition({
                 _active={{ transform: "translateY(0)" }}
                 transition="all 0.2s"
               >
-                {isPreviewMode && !isEditMode
-                  ? "Looks good →"
-                  : "Save & Continue →"}
+                {isPreviewMode && !isEditMode ? "Next →" : "Look's Good →"}
               </Button>
             </motion.div>
           )}

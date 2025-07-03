@@ -3,6 +3,7 @@ model: openai/gpt-4o-mini
 config:
   temperature: 0.4
 output:
+  format: json
   schema:
     type: object
     properties:
@@ -24,7 +25,7 @@ output:
               description: "The primary category this automation falls under"
             description:
               type: string
-              description: "Detailed description of what this automation does and why it's valuable for this user"
+              description: "Brief description of what this automation does with specific context about why it's relevant to this user's life/patterns (e.g., 'Compile relevant documents because you have frequent partner meetings at Dulu Ventures')"
             triggers:
               type: array
               items:
@@ -40,7 +41,7 @@ output:
               description: "Clear explanation of the value/benefit this provides to the user"
             frequency:
               type: string
-              enum: ["continuous", "daily", "weekly", "monthly", "as-needed", "event-driven"]
+              enum: ["continuous", "daily", "weekly", "monthly", "annual", "as-needed", "event-driven"]
               description: "How often this automation would run"
             priority:
               type: string
@@ -140,4 +141,41 @@ Create a JSON response with:
 1. **Summary** of their automation potential based on profile evidence
 2. **Automations array** with 6-8 specific background agents that would genuinely improve their daily life
 
-Focus on agents that solve problems they actually have, use services they actually use, and align with their demonstrated approach and preferences. 
+**YOUR MISSION:** Design background agents that solve {{userInfo.firstName}}'s actual problems using evidence from their real life patterns.
+
+<automation_examples>
+**MANDATORY: Show Your Decision-Making Process**
+
+**Every automation description must be 2 concise lines following this format:**
+"[What it does] because [specific evidence] which means [key benefit]."
+
+**EXAMPLES OF IDEAL 2-LINE LENGTH:**
+
+• "Monitor Turo car rental prices for England destinations and alert you when rates drop below £40/day because your emails show active trip planning and rental comparisons, which means you'll secure the best deals without daily manual checking."
+
+• "Automatically compile relevant documents from Google Drive and create meeting prep summaries because you have frequent Dulu Ventures partner meetings and reference preparing investor materials, which means you'll be fully prepared without last-minute file scrambling."
+
+• "Track subscription charges across your financial accounts and flag unexpected increases because you maintain multiple premium services and have expressed cost optimization concerns, which means you'll catch unwanted changes immediately."
+
+**CONCISE REASONING REQUIREMENTS:**
+- **Evidence**: Brief reference to specific behavior/pattern from profile
+- **Benefit**: Clear practical value in 1 short phrase
+- **Target**: 80-120 words that fit comfortably in 2 lines of UI text
+
+**KEEP IT PUNCHY: Show personalization without overwhelming the interface.**
+</automation_examples>
+
+<evidence_matching>
+**MAKE REASONABLE AUTOMATION INFERENCES:**
+• Multiple subscription emails → Subscription management agent
+• Frequent travel booking → Travel deal monitoring agent  
+• Regular meeting coordination → Meeting preparation agent
+• Multiple financial accounts → Financial aggregation agent
+• Healthcare appointments → Appointment optimization agent
+
+**EXTRACT AUTOMATION OPPORTUNITIES FROM THEIR LIFE:**
+• What repetitive tasks do they handle?
+• Which services do they actively use?
+• What coordination challenges do they face?
+• Where do they spend time and money?
+</evidence_matching> 

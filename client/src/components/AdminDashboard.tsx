@@ -1,6 +1,5 @@
 import { Box, Flex, useToast } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
-import pLimit from "p-limit";
 import Toolbar from "./Toolbar";
 import EmailList from "./EmailList";
 import EmailViewer from "./EmailViewer";
@@ -32,9 +31,6 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     firstName: string;
     lastName: string;
   } | null>(null);
-
-  // Rate limiter for AI requests - limit to 10 concurrent AI calls
-  const aiLimit = pLimit(200);
 
   // Loading states
   const [fetchingEmails, setFetchingEmails] = useState(false);
@@ -344,117 +340,139 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     try {
       const tokens = getAuthTokens();
 
-      // Step 1: Extract insights from all emails with rate limiting
-      let processedCount = 0;
-      let currentErrorCount = 0;
-
-      const extractPromises = currentEmails.slice().map((email, index) =>
-        aiLimit(async () => {
-          // Move email from queued to processing
-          setQueuedEmailIds((prev) => {
-            const newSet = new Set(prev);
-            newSet.delete(email.id);
-            return newSet;
-          });
-          setProcessingEmailIds((prev) => new Set([...prev, email.id]));
-
-          try {
-            const response = await axios.post(
-              "http://localhost:3001/api/gmail/extract-insights",
-              {
-                tokens,
-                emailId: email.id,
-                emailData: email,
-                userInfo: currentUserInfo,
-                sessionId: "default",
-              }
-            );
-
-            const insights = response.data.insights || [];
-            const classification = response.data.classification;
-
-            // Update insights immediately for this email
-            setInsightsByEmail((prev) => {
-              const updated = {
-                ...prev,
-                [email.id]: insights,
-              };
-              // Store in IndexedDB asynchronously (don't block)
-              storageService.setInsights(updated).catch(() => {
-                // Silently handle storage errors
-              });
-              return updated;
-            });
-
-            // Update email with classification data if available
-            if (classification) {
-              setEmails((prevEmails) => {
-                const updatedEmails = prevEmails.map((prevEmail) =>
-                  prevEmail.id === email.id
-                    ? { ...prevEmail, classification }
-                    : prevEmail
-                );
-                // Store updated emails in IndexedDB asynchronously
-                storageService.setEmails(updatedEmails).catch(() => {
-                  // Silently handle storage errors
-                });
-                return updatedEmails;
-              });
-            }
-
-            return {
-              emailId: email.id,
-              insights,
-              classification,
-            };
-          } catch (error: any) {
-            const errorMsg =
-              error?.response?.data?.error || error?.message || "Unknown error";
-            console.error(
-              `❌ Failed to extract insights from email "${email.subject}":`,
-              errorMsg
-            );
-
-            currentErrorCount++;
-
-            return {
-              emailId: email.id,
-              insights: [],
-            };
-          } finally {
-            setProcessingEmailIds((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(email.id);
-              return newSet;
-            });
-
-            // Update progress in real-time
-            processedCount++;
-
-            // Update master progress for insights
-            setMasterProgress((prev) => ({
-              ...prev,
-              insightsProgress: {
-                processed: processedCount,
-                total: currentEmails.length,
-              },
-            }));
-          }
-        })
+      // Step 1: Extract insights from all emails using BATCH processing
+      console.log(
+        `🚀 Starting batch processing for ${currentEmails.length} emails`
       );
 
-      const extractResults = await Promise.all(extractPromises);
+      let processedCount = 0;
+      let currentErrorCount = 0;
+      const BATCH_SIZE = 100; // Reduced from 100 to avoid payload size issues
 
-      // Count successes (errors already tracked in real-time)
-      const successfulEmails = extractResults.filter(
-        (r) => r.insights.length > 0
-      ).length;
+      // Split emails into batches of 50
+      const emailBatches = [];
+      for (let i = 0; i < currentEmails.length; i += BATCH_SIZE) {
+        emailBatches.push(currentEmails.slice(i, i + BATCH_SIZE));
+      }
+
+      console.log(
+        `📦 Created ${emailBatches.length} batches of ${BATCH_SIZE} emails each`
+      );
+
+      // Process batches sequentially to avoid overwhelming the server
+      for (let batchIndex = 0; batchIndex < emailBatches.length; batchIndex++) {
+        const batch = emailBatches[batchIndex];
+        console.log(
+          `📤 Processing batch ${batchIndex + 1}/${emailBatches.length} (${
+            batch.length
+          } emails)`
+        );
+
+        try {
+          // Send batch to server
+          const response = await axios.post(
+            "http://localhost:3001/api/gmail/extract-insights-batch",
+            {
+              tokens,
+              emails: batch,
+              userInfo: currentUserInfo,
+              sessionId: "default",
+            }
+          );
+
+          const { results, stats } = response.data;
+
+          // Process batch results
+          results.forEach((result: any) => {
+            if (result.success) {
+              const { emailId, insights, classification } = result;
+
+              // Update insights immediately for this email
+              setInsightsByEmail((prev) => {
+                const updated = {
+                  ...prev,
+                  [emailId]: insights,
+                };
+                // Store in IndexedDB asynchronously (don't block)
+                storageService.setInsights(updated).catch(() => {
+                  // Silently handle storage errors
+                });
+                return updated;
+              });
+
+              // Update email with classification data if available
+              if (classification) {
+                setEmails((prevEmails) => {
+                  const updatedEmails = prevEmails.map((prevEmail) =>
+                    prevEmail.id === emailId
+                      ? { ...prevEmail, classification }
+                      : prevEmail
+                  );
+                  // Store updated emails in IndexedDB asynchronously
+                  storageService.setEmails(updatedEmails).catch(() => {
+                    // Silently handle storage errors
+                  });
+                  return updatedEmails;
+                });
+              }
+
+              // Update processing state (visual feedback)
+              setProcessingEmailIds((prev) => {
+                const newSet = new Set(prev);
+                newSet.delete(emailId);
+                return newSet;
+              });
+            } else {
+              currentErrorCount++;
+              console.error(
+                `❌ Failed to process email ${result.emailId}:`,
+                result.error
+              );
+            }
+          });
+
+          // Update progress for the entire batch
+          processedCount += batch.length;
+          setMasterProgress((prev) => ({
+            ...prev,
+            insightsProgress: {
+              processed: processedCount,
+              total: currentEmails.length,
+            },
+          }));
+
+          console.log(
+            `✅ Batch ${batchIndex + 1} complete: ${stats.successful}/${
+              stats.total
+            } emails processed, ${stats.totalInsights} insights extracted`
+          );
+        } catch (batchError: any) {
+          console.error(
+            `❌ Batch ${batchIndex + 1} failed:`,
+            batchError?.message
+          );
+          currentErrorCount += batch.length;
+
+          // Still update progress even for failed batches
+          processedCount += batch.length;
+          setMasterProgress((prev) => ({
+            ...prev,
+            insightsProgress: {
+              processed: processedCount,
+              total: currentEmails.length,
+            },
+          }));
+        }
+      }
+
+      // Count successes (errors already tracked)
+      const successfulEmails = Object.keys(insightsByEmail).length;
 
       // Step 2: Aggregate all insights and group by category
       const allInsights: any[] = [];
 
-      extractResults.forEach(({ insights }) => {
-        allInsights.push(...insights);
+      Object.values(insightsByEmail).forEach((emailInsights) => {
+        allInsights.push(...emailInsights);
       });
 
       // Group insights by category (handling multiple categories per insight)
@@ -603,7 +621,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
       toast({
         title: "Profile Building Complete",
-        description: `Generated ${totalCategories} profile files from ${successfulEmails}/${currentEmails.length} emails`,
+        description: `Generated ${totalCategories} profile files from ${successfulEmails}/${currentEmails.length} emails (${emailBatches.length} batches processed)`,
         status: resultStatus,
         duration: 5000,
         isClosable: true,
@@ -839,9 +857,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
     summary: string;
     automations: any[];
   }): string => {
-    const automations = automationData.automations;
-
-    return JSON.stringify(automations, null, 2);
+    // Store the full automation data (summary + automations) so the preview can use the user flow interface
+    return JSON.stringify(automationData, null, 2);
   };
 
   return (

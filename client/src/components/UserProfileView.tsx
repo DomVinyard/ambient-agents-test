@@ -5,6 +5,7 @@ import { profileService } from "../services/profile.service";
 import { storageService } from "../services/storage.service";
 import AnimatedProfileTransition from "./AnimatedProfileTransition";
 import { PusherReceiver } from "./PusherReceiver";
+import AutomationListView from "./AutomationListView";
 
 interface UserProfileViewProps {
   onLogout: () => void;
@@ -21,6 +22,10 @@ export default function UserProfileView({
   const [error, setError] = useState<string | null>(null);
   const [hasCheckedProfile, setHasCheckedProfile] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Connecting to Gmail...");
+  const [automationData, setAutomationData] = useState<any>(null);
+  const [showAutomations, setShowAutomations] = useState(false);
+  const [isComingFromAutomations, setIsComingFromAutomations] = useState(false);
+  const [userInfo, setUserInfo] = useState<any>(null);
 
   // Enhanced status message setter with logging
   const updateStatusMessage = (message: string, source: string) => {
@@ -32,10 +37,13 @@ export default function UserProfileView({
   const [insightQueue, setInsightQueue] = useState<any[]>([]);
   const [hasShownInitialMessages, setHasShownInitialMessages] = useState(false);
   const [fakeProgressFrom90, setFakeProgressFrom90] = useState(0); // Extra progress from 90% to make it feel smoother
+  const [smoothProgress, setSmoothProgress] = useState(0); // Smoothed progress for display
 
   // Use refs to avoid closure capture in interval
   const insightQueueRef = useRef<any[]>([]);
   const hasShownInitialRef = useRef(false);
+  const lastRealProgressRef = useRef(0);
+  const progressTargetRef = useRef(0);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -46,9 +54,9 @@ export default function UserProfileView({
     hasShownInitialRef.current = hasShownInitialMessages;
   }, [hasShownInitialMessages]);
 
-  // Calculate overall progress percentage for user mode
+  // Calculate real overall progress percentage for user mode
   // Realistic stage distribution: 10/70/10/10 based on actual processing time
-  const calculateOverallProgress = () => {
+  const calculateRealProgress = () => {
     let totalProgress = 0;
 
     // Stage 1: Fetch emails (0-10%) - quick
@@ -85,6 +93,11 @@ export default function UserProfileView({
     }
 
     return Math.round(Math.min(totalProgress, 99));
+  };
+
+  // Get the smoothed progress for display
+  const calculateOverallProgress = () => {
+    return Math.round(Math.min(smoothProgress, 99));
   };
 
   // Progress tracking
@@ -218,7 +231,75 @@ export default function UserProfileView({
     };
   }, [isBuilding]); // Only depend on isBuilding, not masterProgress
 
-  // Effect 3: Handle smooth fake progress from 90% to 100%
+  // Effect 3: Update progress target when real progress changes
+  useEffect(() => {
+    if (!isBuilding) {
+      setSmoothProgress(0);
+      lastRealProgressRef.current = 0;
+      progressTargetRef.current = 0;
+      return;
+    }
+
+    const realProgress = calculateRealProgress();
+
+    // Update target when real progress changes
+    if (realProgress !== lastRealProgressRef.current) {
+      console.log(
+        `🎯 Progress target updated: ${lastRealProgressRef.current}% → ${realProgress}%`
+      );
+      lastRealProgressRef.current = realProgress;
+      progressTargetRef.current = realProgress;
+    }
+  }, [isBuilding, masterProgress]);
+
+  // Effect 3b: Smooth progress animation timer
+  useEffect(() => {
+    if (!isBuilding) {
+      return;
+    }
+
+    const animateProgress = () => {
+      setSmoothProgress((currentSmooth) => {
+        const target = progressTargetRef.current;
+
+        if (Math.abs(currentSmooth - target) > 0.1) {
+          // Determine interpolation speed based on phase
+          let speed = 0.08; // Default speed per 100ms interval
+
+          if (currentSmooth >= 10 && currentSmooth <= 80) {
+            // Slower during insights phase to make it feel more smooth
+            speed = 0.04;
+          } else if (currentSmooth >= 90) {
+            // Faster for final phase
+            speed = 0.12;
+          }
+
+          const direction = target > currentSmooth ? 1 : -1;
+          const increment = Math.max(
+            0.05,
+            Math.abs(target - currentSmooth) * speed
+          );
+          const newProgress = currentSmooth + increment * direction;
+
+          // Don't overshoot the target
+          if (direction > 0 && newProgress > target) {
+            return target;
+          } else if (direction < 0 && newProgress < target) {
+            return target;
+          } else {
+            return newProgress;
+          }
+        }
+
+        return currentSmooth; // No change needed
+      });
+    };
+
+    const interval = setInterval(animateProgress, 100); // Update every 100ms for smooth animation
+    return () => clearInterval(interval);
+  }, [isBuilding]);
+
+  // Effect 4: Handle smooth fake progress from 90% to 100%
   useEffect(() => {
     if (!isBuilding) {
       setFakeProgressFrom90(0);
@@ -283,6 +364,12 @@ export default function UserProfileView({
     setIsLoading(true);
 
     try {
+      // Load user info
+      const storedUserInfo = await storageService.getUserInfo();
+      if (storedUserInfo) {
+        setUserInfo(storedUserInfo);
+      }
+
       // Check if user has existing profile files
       const files = storageService.getItem("ambient-agents-files");
       const fullProfile = files?.["full.md"]?.content;
@@ -331,8 +418,8 @@ export default function UserProfileView({
 
       // Fetch emails and build profile in one step
       const { emails, userInfo } = await profileService.fetchEmails({
-        sentCount: 50,
-        receivedCount: 50,
+        sentCount: 250,
+        receivedCount: 250,
         onProgressUpdate: (stage, progress) => {
           setMasterProgress((prev) => ({
             ...prev,
@@ -448,7 +535,13 @@ export default function UserProfileView({
       };
       storageService.setItem("ambient-agents-files", updatedFiles);
 
-      // Clear progress after a short delay
+      // Store automation data and user info
+      if (result.automationData) {
+        setAutomationData(result.automationData);
+      }
+      setUserInfo(userInfo);
+
+      // Clear progress after a short delay, then show automations
       setTimeout(() => {
         setMasterProgress((prev) => ({
           ...prev,
@@ -460,6 +553,11 @@ export default function UserProfileView({
         }));
         setIsLoading(false);
         setIsBuilding(false);
+
+        // Show automations first if we have automation data
+        if (result.automationData) {
+          setShowAutomations(true);
+        }
       }, 2000);
     } catch (error) {
       console.error("Error building profile:", error);
@@ -500,15 +598,13 @@ export default function UserProfileView({
 
   const handleConfirm = () => {
     // For now, just show an alert
-    alert("Profile saved!");
+    // redirect to https://samantha-chi.vercel.app
+    window.location.href = "https://samantha-chi.vercel.app";
+  };
 
-    toast({
-      title: "Profile Confirmed",
-      description: "Your profile has been saved successfully.",
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+  const handleContinueFromAutomations = () => {
+    setShowAutomations(false);
+    setIsComingFromAutomations(true);
   };
 
   const handleLogout = async () => {
@@ -545,7 +641,19 @@ export default function UserProfileView({
 
   // Always use the animated transition for all states
   const overallProgress = calculateOverallProgress();
-  const showProfileMode = !isBuilding && !isLoading && !!profileContent;
+  const showProfileMode =
+    (!isBuilding && !isLoading && !!profileContent) || isComingFromAutomations;
+
+  // Reset the automation transition flag after it's been used
+  useEffect(() => {
+    if (isComingFromAutomations && showProfileMode && !showAutomations) {
+      // Reset after a short delay to allow the transition to complete
+      const timer = setTimeout(() => {
+        setIsComingFromAutomations(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isComingFromAutomations, showProfileMode, showAutomations]);
 
   // Memoize the Pusher callback to prevent reconnection loops
   const handleMasterProgressUpdate = useCallback(
@@ -558,6 +666,24 @@ export default function UserProfileView({
     },
     []
   );
+
+  // Show automation list if we have automation data and showAutomations is true
+  if (showAutomations && automationData) {
+    return (
+      <>
+        <PusherReceiver
+          sessionId="default"
+          onMasterProgressUpdate={handleMasterProgressUpdate}
+        />
+        <AutomationListView
+          automationData={automationData}
+          onContinue={handleContinueFromAutomations}
+          onLogout={handleLogout}
+          userInfo={userInfo}
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -576,6 +702,7 @@ export default function UserProfileView({
         onConfirm={handleConfirm}
         onLogout={handleLogout}
         isComplete={showProfileMode}
+        skipLoadingDelay={isComingFromAutomations}
       />
     </>
   );
