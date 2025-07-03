@@ -416,7 +416,7 @@ app.post('/api/ai/compile-profile', async (req, res) => {
   }
 });
 
-// Analyze automation opportunities from profile files (new endpoint)
+// Analyze profile files for automation opportunities (new endpoint)
 app.post('/api/ai/analyze-automation', async (req, res) => {
   const { tokens, profileFiles, userInfo } = req.body;
   const sessionId = getSessionId(req);
@@ -429,16 +429,16 @@ app.post('/api/ai/analyze-automation', async (req, res) => {
       fileCount: Object.keys(profileFiles).length 
     });
 
-    const automationResult = await aiService.analyzeAutomation({
+    const automationData = await aiService.analyzeAutomation({
       profileFiles,
       userInfo
     });
     
     await pusherService.trigger(`${sessionId}`, 'automation-complete', {
-      automationCount: automationResult.automations.length
+      automationCount: automationData.automations.length
     });
     
-    res.json(automationResult);
+    res.json(automationData);
 
   } catch (err) {
     console.error('Error analyzing automation opportunities:', err);
@@ -446,28 +446,6 @@ app.post('/api/ai/analyze-automation', async (req, res) => {
       error: err instanceof Error ? err.message : 'Unknown error'
     });
     res.status(500).json({ error: 'Failed to analyze automation opportunities', details: err instanceof Error ? err.message : err });
-  }
-});
-
-// Generate friendly status message from insights (new endpoint)
-app.post('/api/ai/generate-status', async (req, res) => {
-  const { insights, userInfo } = req.body;
-
-  if (!insights || !userInfo) {
-    return res.status(400).json({ error: 'Missing insights or userInfo' });
-  }
-
-  try {
-    const statusMessage = await aiService.generateStatusMessage({
-      insights,
-      userInfo
-    });
-    
-    res.json({ message: statusMessage });
-
-  } catch (err) {
-    console.error('Error generating status message:', err);
-    res.status(500).json({ error: 'Failed to generate status message', details: err instanceof Error ? err.message : err });
   }
 });
 

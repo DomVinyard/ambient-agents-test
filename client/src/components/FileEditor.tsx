@@ -1,35 +1,39 @@
-import { Box, VStack, Text } from '@chakra-ui/react';
-import { Edit } from 'lucide-react';
-import MarkdownEditor from './MarkdownEditor';
-import { FileItem } from '../types';
+import { Box, VStack } from "@chakra-ui/react";
+import { Edit } from "lucide-react";
+import MarkdownEditor from "./MarkdownEditor";
+import EmptyState from "./EmptyState";
+import { FileItem } from "../types";
 
 interface FileEditorProps {
   file: FileItem | null;
+  hasFiles: boolean;
   onSave: (fileName: string, content: string) => void;
 }
 
-export default function FileEditor({ file, onSave }: FileEditorProps) {
-
+export default function FileEditor({
+  file,
+  hasFiles,
+  onSave,
+}: FileEditorProps) {
   return (
     <Box flex="1" h="100%" bg="gray.50">
       <VStack spacing={0} h="100%">
         {/* Content */}
         <Box flex="1" w="100%">
           {!file ? (
-            <Box p={4} textAlign="center" py={8}>
-              <Edit size={32} color="#9CA3AF" />
-              <Text mt={3} fontSize="sm" color="gray.500">
-                Select a file to edit
-              </Text>
-            </Box>
+            hasFiles ? (
+              <EmptyState
+                icon={Edit}
+                title="Select a file to edit"
+                description="Choose a file from the sidebar to view and edit its contents"
+                iconSize={32}
+              />
+            ) : null
           ) : (
-            <MarkdownEditor
-              file={file}
-              onSave={onSave}
-            />
+            <MarkdownEditor file={file} onSave={onSave} />
           )}
         </Box>
       </VStack>
     </Box>
   );
-} 
+}

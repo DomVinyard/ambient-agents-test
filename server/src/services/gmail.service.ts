@@ -2,8 +2,7 @@ import { google } from 'googleapis';
 import { gmail_v1 } from 'googleapis';
 import { GaxiosResponse } from 'gaxios';
 import fetch from 'node-fetch';
-import { extractEmailBody } from '../utils/extract-email-body';
-import { cleanHtmlContent } from '../utils/clean-html-content';
+import { extractEmailBodyAsPlaintext } from '../utils/email-to-plaintext';
 
 /**
  * Gmail Service for fetching emails
@@ -31,7 +30,7 @@ export class GmailService {
     this.oauth2Client = new google.auth.OAuth2(this.CLIENT_ID, this.CLIENT_SECRET, this.REDIRECT_URI);
   }
 
-  generateAuthUrl(mode: string = 'user'): string {
+  generateAuthUrl(mode: string = 'admin'): string {
     const scopes = [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/userinfo.email',
@@ -120,7 +119,7 @@ export class GmailService {
           });
           
           // Extract full email body
-          const fullBody = msgRes.data.payload ? extractEmailBody(msgRes.data.payload) : '';
+          const fullBody = msgRes.data.payload ? extractEmailBodyAsPlaintext({ payload: msgRes.data.payload }) : '';
           
           return {
             id: msgRes.data.id,

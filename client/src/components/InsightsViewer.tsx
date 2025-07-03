@@ -1,6 +1,19 @@
-import { Box, VStack, Button, Text, Badge, List, ListItem, Spinner, Alert, AlertIcon, IconButton, Flex, Center } from '@chakra-ui/react';
-import { FileText, Lightbulb, X } from 'lucide-react';
-import { Insight } from '../types';
+import {
+  Box,
+  VStack,
+  Button,
+  Text,
+  List,
+  Spinner,
+  Alert,
+  AlertIcon,
+  IconButton,
+  Flex,
+} from "@chakra-ui/react";
+import { FileText, Lightbulb, X } from "lucide-react";
+import { Insight } from "../types";
+import EmptyState from "./EmptyState";
+import InsightItem from "./InsightItem";
 
 interface InsightsViewerProps {
   insights: Insight[];
@@ -12,29 +25,23 @@ interface InsightsViewerProps {
   hasAttemptedExtraction?: boolean;
 }
 
-export default function InsightsViewer({ 
-  insights, 
-  onApplyToBio, 
-  isLoading, 
+export default function InsightsViewer({
+  insights,
+  onApplyToBio,
+  isLoading,
   isExtracting = false,
   error,
   onClose,
-  hasAttemptedExtraction = false
+  hasAttemptedExtraction = false,
 }: InsightsViewerProps) {
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      professional: 'blue',
-      personal: 'green',
-      communication: 'purple',
-      behavioral: 'orange',
-      technical: 'teal',
-      general: 'gray'
-    };
-    return colors[category.toLowerCase()] || 'gray';
-  };
-
   return (
-    <Box w="100%" h="100%" bg="white" borderRight="1px solid" borderColor="gray.200">
+    <Box
+      w="100%"
+      h="100%"
+      bg="white"
+      borderRight="1px solid"
+      borderColor="gray.200"
+    >
       <VStack spacing={0} h="100%">
         {/* Header */}
         <Box p={4} borderBottom="1px solid" borderColor="gray.200" w="100%">
@@ -45,11 +52,11 @@ export default function InsightsViewer({
               size="sm"
               onClick={onApplyToBio}
               isLoading={isLoading}
-              loadingText="Applying..."
+              loadingText="Building..."
               isDisabled={insights.length === 0 || isExtracting}
               flex="1"
             >
-              Apply to Bio →
+              Build Profile →
             </Button>
             {onClose && (
               <IconButton
@@ -82,21 +89,19 @@ export default function InsightsViewer({
           )}
 
           {insights.length === 0 && !isLoading && !isExtracting && (
-            <Box textAlign="center" py={8}>
-              <Center>
-              <Lightbulb size={48} color="#CBD5E0" />
-              </Center>
-              
-              <Text mt={4} fontSize="md" color="gray.500">
-                {hasAttemptedExtraction ? "No insights found" : "No insights extracted yet"}
-              </Text>
-              <Text fontSize="sm" color="gray.400">
-                {hasAttemptedExtraction 
+            <EmptyState
+              icon={Lightbulb}
+              title={
+                hasAttemptedExtraction
+                  ? "No insights found"
+                  : "No insights extracted yet"
+              }
+              description={
+                hasAttemptedExtraction
                   ? "The AI analysis completed but didn't find any high-confidence insights in this email"
-                  : "Select an email and click \"Extract Insights\" to see AI analysis"
-                }
-              </Text>
-            </Box>
+                  : 'Select an email and click "Extract Insights" to see AI analysis'
+              }
+            />
           )}
 
           {insights.length > 0 && !isExtracting && (
@@ -112,51 +117,7 @@ export default function InsightsViewer({
 
               <List spacing={3}>
                 {insights.map((insight, index) => (
-                  <ListItem key={index}>
-                    <Box 
-                      p={3} 
-                      bg="gray.50" 
-                      borderRadius="md" 
-                      border="1px solid" 
-                      borderColor="gray.200"
-                    >
-                      <VStack spacing={2} align="stretch">
-                        <Box>
-                          <Flex gap={1} mb={2} flexWrap="wrap">
-                            {insight.categories.map((category, categoryIndex) => (
-                              <Badge 
-                                key={categoryIndex}
-                                colorScheme={getCategoryColor(category)} 
-                                size="sm"
-                              >
-                                {category.toUpperCase()}
-                              </Badge>
-                            ))}
-                          </Flex>
-                          <Text fontSize="sm" fontWeight="medium" color="gray.800">
-                            {insight.insight}
-                          </Text>
-                        </Box>
-                        
-                        {insight.evidence && (
-                          <Box>
-                            <Text fontSize="xs" color="gray.600" fontWeight="medium">
-                              Evidence:
-                            </Text>
-                            <Text fontSize="xs" color="gray.600" fontStyle="italic">
-                              "{insight.evidence}"
-                            </Text>
-                          </Box>
-                        )}
-                        
-                        <Box>
-                          <Text fontSize="xs" color="gray.500">
-                            Confidence: {Math.round(insight.confidence * 100)}%
-                          </Text>
-                        </Box>
-                      </VStack>
-                    </Box>
-                  </ListItem>
+                  <InsightItem key={index} insight={insight} index={index} />
                 ))}
               </List>
             </VStack>
@@ -165,4 +126,4 @@ export default function InsightsViewer({
       </VStack>
     </Box>
   );
-} 
+}

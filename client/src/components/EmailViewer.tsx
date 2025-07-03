@@ -3,15 +3,17 @@ import {
   VStack,
   Button,
   Text,
-  Divider,
   Badge,
   Alert,
   AlertIcon,
   IconButton,
   Flex,
+  Divider,
+  useToast,
 } from "@chakra-ui/react";
-import { Brain, Mail, X } from "lucide-react";
+import { Brain, Mail, X, Copy } from "lucide-react";
 import { Email } from "../types";
+import EmptyState from "./EmptyState";
 
 interface EmailViewerProps {
   email: Email | null;
@@ -32,6 +34,31 @@ export default function EmailViewer({
   showCloseButton = false,
   hasInsights = false,
 }: EmailViewerProps) {
+  const toast = useToast();
+
+  const copyEmailContent = async () => {
+    if (!email) return;
+
+    const content = email.fullBody || email.snippet || "No content available";
+    try {
+      await navigator.clipboard.writeText(content);
+      toast({
+        title: "Copied to clipboard",
+        description: "Email content has been copied to your clipboard",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy email content to clipboard",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
   return (
     <Box
       w="100%"
@@ -69,107 +96,76 @@ export default function EmailViewer({
         </Box>
 
         {/* Content */}
-        <Box flex="1" w="100%" overflowY="auto" p={4}>
+        <Box flex="1" w="100%" overflowY="auto">
           {error && (
-            <Alert status="error" size="sm" mb={4}>
+            <Alert status="error" size="sm" m={4}>
               <AlertIcon />
               <Text fontSize="sm">{error}</Text>
             </Alert>
           )}
 
           {!email && (
-            <Box textAlign="center" py={8}>
-              <Mail size={48} color="#CBD5E0" />
-              <Text mt={4} fontSize="md" color="gray.500">
-                Select an email to view
-              </Text>
-              <Text fontSize="sm" color="gray.400">
-                Choose an email from the list to see its content
-              </Text>
-            </Box>
+            <EmptyState
+              icon={Mail}
+              title="Select an email to view"
+              description="Choose an email from the list to see its content"
+            />
           )}
 
           {email && (
-            <VStack spacing={4} align="stretch">
+            <Box p={4}>
               {/* Email Header */}
-              <Box>
-                <Text
-                  fontSize="lg"
-                  fontWeight="bold"
-                  color="gray.800"
-                  mb={2}
-                  wordBreak="break-word"
-                >
-                  {email.subject}
-                </Text>
+              <VStack spacing={4} align="stretch">
+                <Box>
+                  <Text
+                    fontSize="xl"
+                    fontWeight="bold"
+                    color="gray.800"
+                    mb={3}
+                    lineHeight="1.3"
+                  >
+                    {email.subject}
+                  </Text>
 
-                <VStack spacing={2} align="stretch">
-                  <Box>
-                    <Text fontSize="sm" color="gray.600" wordBreak="break-word">
+                  <VStack spacing={2} align="stretch" mb={3}>
+                    <Text fontSize="sm" color="gray.600">
                       <Text as="span" fontWeight="medium">
                         From:
                       </Text>{" "}
                       {email.from}
                     </Text>
-                  </Box>
 
-                  {email.to && (
-                    <Box>
-                      <Text
-                        fontSize="sm"
-                        color="gray.600"
-                        wordBreak="break-word"
-                      >
+                    {email.to && (
+                      <Text fontSize="sm" color="gray.600">
                         <Text as="span" fontWeight="medium">
                           To:
                         </Text>{" "}
                         {email.to}
                       </Text>
-                    </Box>
-                  )}
+                    )}
 
-                  {email.cc && (
-                    <Box>
-                      <Text
-                        fontSize="sm"
-                        color="gray.600"
-                        wordBreak="break-word"
-                      >
+                    {email.cc && (
+                      <Text fontSize="sm" color="gray.600">
                         <Text as="span" fontWeight="medium">
                           CC:
                         </Text>{" "}
                         {email.cc}
                       </Text>
-                    </Box>
-                  )}
+                    )}
 
-                  <Box>
                     <Text fontSize="sm" color="gray.600">
                       <Text as="span" fontWeight="medium">
                         Date:
                       </Text>{" "}
                       {new Date(email.date).toLocaleString()}
                     </Text>
-                  </Box>
+                  </VStack>
 
-                  <Box>
-                    <Badge colorScheme="blue" size="sm">
-                      ID: {email.id.substring(0, 8)}...
-                    </Badge>
-                  </Box>
-
-                  {email.classification && (
-                    <Box>
-                      <Text
-                        fontSize="sm"
-                        fontWeight="medium"
-                        color="gray.700"
-                        mb={1}
-                      >
-                        Classification:
-                      </Text>
+                  {/* Classification and ID in one line */}
+                  <Flex gap={2} align="center" mb={4}>
+                    {email.classification && (
                       <Badge
-                        size="md"
+                        size="sm"
                         variant="solid"
                         colorScheme={
                           email.classification.emailType === "personal"
@@ -182,35 +178,47 @@ export default function EmailViewer({
                             ? "orange"
                             : "gray"
                         }
-                        textTransform="capitalize"
                       >
                         {email.classification.emailType} (
                         {Math.round(email.classification.confidence * 100)}%)
                       </Badge>
-                      <Text fontSize="xs" color="gray.500" mt={1}>
-                        {email.classification.reasoning}
-                      </Text>
-                    </Box>
+                    )}
+                    <Text fontSize="xs" color="gray.400">
+                      {email.id.substring(0, 8)}...
+                    </Text>
+                  </Flex>
+
+                  {/* Classification reasoning */}
+                  {email.classification?.reasoning && (
+                    <Text
+                      fontSize="xs"
+                      color="gray.500"
+                      mb={4}
+                      fontStyle="italic"
+                    >
+                      {email.classification.reasoning}
+                    </Text>
                   )}
-                </VStack>
-              </Box>
+                </Box>
 
-              <Divider />
+                <Divider />
 
-              {/* Email Content */}
-              <Box>
-                <Text fontSize="sm" fontWeight="medium" color="gray.700" mb={2}>
-                  Email Content:
-                </Text>
-                <Box
-                  p={3}
-                  bg="gray.50"
-                  borderRadius="md"
-                  border="1px solid"
-                  borderColor="gray.200"
-                  maxH="400px"
-                  overflowY="auto"
-                >
+                {/* Email Content - Clean and Simple */}
+                <Box>
+                  <Flex align="center" gap={2} mb={3}>
+                    <Text fontSize="sm" fontWeight="medium" color="gray.700">
+                      Email Content:
+                    </Text>
+                    <IconButton
+                      icon={<Copy size={14} />}
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Copy email content"
+                      onClick={copyEmailContent}
+                      colorScheme="gray"
+                      title="Copy email content to clipboard"
+                    />
+                  </Flex>
                   <Text
                     fontSize="sm"
                     color="gray.700"
@@ -221,15 +229,8 @@ export default function EmailViewer({
                     {email.fullBody || email.snippet || "No content available"}
                   </Text>
                 </Box>
-              </Box>
-
-              <Box mt={4}>
-                <Text fontSize="xs" color="gray.500">
-                  Click "Extract Insights" to analyze this email with AI and
-                  extract key information about you.
-                </Text>
-              </Box>
-            </VStack>
+              </VStack>
+            </Box>
           )}
         </Box>
       </VStack>

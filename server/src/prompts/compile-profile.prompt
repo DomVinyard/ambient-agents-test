@@ -1,5 +1,5 @@
 ---
-model: openai/gpt-4o-mini
+model: openai/gpt-4.1
 config:
   temperature: 0.3
 output:
@@ -9,7 +9,7 @@ output:
     properties:
       content:
         type: string
-        description: "The comprehensive compiled profile optimized for LLM consumption as a flowing narrative"
+        description: "The comprehensive compiled profile optimized for LLM consumption as a flowing narrative. 250 words max."
     required: ["content"]
     additionalProperties: false
 input:
@@ -122,4 +122,4 @@ Create a unified, flowing narrative (not sections) that naturally progresses fro
 
 {{/each}}
 
-Create a comprehensive, flowing LLM assistant manual that prioritizes essential information and enables genuinely useful assistance for {{userInfo.firstName}} {{userInfo.lastName}}. 
+Create a comprehensive, flowing LLM assistant manual that prioritizes essential information and enables genuinely useful assistance for {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}). 250 words max.

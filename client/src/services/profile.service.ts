@@ -67,52 +67,8 @@ class ProfileService {
   }
 
   private formatAutomationData(automationData: { summary: string; automations: any[] }): string {
-    let content = `# Background Automation Opportunities\n\n`;
-    
-    content += `## Summary\n${automationData.summary}\n\n`;
-    
-    content += `## Recommended Automations\n\n`;
-    
-    const priorityOrder = { 'high': 1, 'medium': 2, 'low': 3 };
-    const sortedAutomations = automationData.automations.sort((a, b) => {
-      return (priorityOrder[a.priority as keyof typeof priorityOrder] || 4) - 
-             (priorityOrder[b.priority as keyof typeof priorityOrder] || 4);
-    });
-    
-    sortedAutomations.forEach((automation, index) => {
-      const priorityEmoji = automation.priority === 'high' ? '🔥' : 
-                           automation.priority === 'medium' ? '⚡' : '💡';
-      const categoryEmoji = automation.category === 'communication' ? '💬' :
-                           automation.category === 'productivity' ? '⚡' :
-                           automation.category === 'finance' ? '💳' :
-                           automation.category === 'health' ? '🏥' :
-                           automation.category === 'learning' ? '📚' :
-                           automation.category === 'relationships' ? '👥' :
-                           automation.category === 'travel' ? '✈️' :
-                           automation.category === 'shopping' ? '🛒' : '🤖';
-      
-      content += `### ${priorityEmoji} ${automation.name}\n`;
-      content += `**Category:** ${categoryEmoji} ${automation.category.charAt(0).toUpperCase() + automation.category.slice(1)}\n`;
-      content += `**Priority:** ${automation.priority.toUpperCase()}\n`;
-      content += `**Complexity:** ${automation.complexity}\n\n`;
-      
-      content += `**Trigger:** ${automation.trigger}\n\n`;
-      
-      content += `**Actions:**\n`;
-      automation.actions.forEach((action: string) => {
-        content += `- ${action}\n`;
-      });
-      content += `\n`;
-      
-      content += `**Evidence:** ${automation.evidence}\n\n`;
-      content += `**Expected Impact:** ${automation.impact}\n\n`;
-      
-      if (index < sortedAutomations.length - 1) {
-        content += `---\n\n`;
-      }
-    });
-    
-    return content;
+    // Return raw JSON instead of formatted markdown
+    return JSON.stringify(automationData, null, 2);
   }
 
   async buildProfile(options: ProfileBuildOptions): Promise<ProfileBuildResult> {
@@ -140,7 +96,7 @@ class ProfileService {
       
       let processedCount = 0;
       let currentErrorCount = 0;
-      const BATCH_SIZE = 150; // Reduced from 100 to avoid payload size issues
+      const BATCH_SIZE = 200; // Reduced from 100 to avoid payload size issues
       
               // Split emails into batches of 50
       const emailBatches = [];

@@ -4,39 +4,71 @@ import {
   Button,
   Text,
   List,
-  ListItem,
-  Spinner,
   Alert,
   AlertIcon,
-  Badge,
-  Flex,
+  FormControl,
+  FormLabel,
+  Checkbox,
+  HStack,
+  ButtonGroup,
 } from "@chakra-ui/react";
-import { Mail, RefreshCw, Clock } from "lucide-react";
+import { Mail, Zap } from "lucide-react";
+import { useState } from "react";
 import { Email } from "../types";
+import EmptyState from "./EmptyState";
+import EmailItem from "./EmailItem";
 
 interface EmailListProps {
   emails: Email[];
   selectedEmailId: string | null;
   onEmailSelect: (emailId: string) => void;
-  onOpenFetchModal: () => void;
+  onFetchEmails: (options: {
+    buildProfile: boolean;
+    sentCount: number;
+    receivedCount: number;
+    deleteProfileFiles: boolean;
+  }) => void;
   isLoading: boolean;
   processingEmailIds: Set<string>;
   queuedEmailIds: Set<string>;
   error: string | null;
   insightsByEmail: Record<string, any[]>;
+  hasExistingEmails: boolean;
+  hasExistingProfileFiles: boolean;
 }
 
 export default function EmailList({
   emails,
   selectedEmailId,
   onEmailSelect,
-  onOpenFetchModal,
+  onFetchEmails,
   isLoading,
   processingEmailIds,
   queuedEmailIds,
   error,
   insightsByEmail,
+  hasExistingEmails,
+  hasExistingProfileFiles,
 }: EmailListProps) {
+  const [totalEmails, setTotalEmails] = useState(100);
+  const [fetchOnly, setFetchOnly] = useState(false);
+  const [deleteProfileFiles, setDeleteProfileFiles] = useState(true);
+
+  const emailCounts = [10, 50, 100, 500, 1000];
+
+  // Split emails evenly between sent and received
+  const sentCount = Math.floor(totalEmails / 2);
+  const receivedCount = totalEmails - sentCount;
+
+  const handleFetch = () => {
+    onFetchEmails({
+      buildProfile: !fetchOnly,
+      sentCount,
+      receivedCount,
+      deleteProfileFiles,
+    });
+  };
+
   return (
     <Box
       flex="1"
@@ -46,19 +78,69 @@ export default function EmailList({
       borderColor="gray.200"
     >
       <VStack spacing={0} h="100%">
-        {/* Header */}
-        <Box p={4} borderBottom="1px solid" borderColor="gray.200" w="100%">
-          <Button
-            leftIcon={<RefreshCw size={16} />}
-            colorScheme="blue"
-            size="sm"
-            onClick={onOpenFetchModal}
-            isLoading={isLoading}
-            loadingText={emails.length > 0 ? "Processing..." : "Fetching..."}
-            w="100%"
-          >
-            {emails.length > 0 ? "Regenerate" : "Generate"}
-          </Button>
+        {/* Header with Controls */}
+        <Box p={3} borderBottom="1px solid" borderColor="gray.200" w="100%">
+          <VStack spacing={3} align="stretch">
+            {/* Checkbox and Buttons Side by Side */}
+            <HStack spacing={2} align="start">
+              <ButtonGroup size="xs" isAttached variant="outline" flex="1">
+                {emailCounts.map((count) => (
+                  <Button
+                    key={count}
+                    onClick={() => setTotalEmails(count)}
+                    colorScheme={totalEmails === count ? "blue" : "gray"}
+                    variant={totalEmails === count ? "solid" : "outline"}
+                    flex="1"
+                  >
+                    {count === 1000 ? "1k" : count}
+                  </Button>
+                ))}
+              </ButtonGroup>
+
+              <Checkbox
+                isChecked={fetchOnly}
+                onChange={(e) => setFetchOnly(e.target.checked)}
+                colorScheme="blue"
+                size="sm"
+                mt={1}
+              >
+                <Text fontSize="xs" fontWeight="medium">
+                  Fetch only
+                </Text>
+              </Checkbox>
+            </HStack>
+
+            {hasExistingProfileFiles && (
+              <Checkbox
+                isChecked={deleteProfileFiles}
+                onChange={(e) => setDeleteProfileFiles(e.target.checked)}
+                colorScheme="red"
+                size="sm"
+              >
+                <Text fontSize="xs" fontWeight="medium">
+                  Delete existing files first
+                </Text>
+              </Checkbox>
+            )}
+
+            <Button
+              leftIcon={fetchOnly ? <Mail size={14} /> : <Zap size={14} />}
+              colorScheme={fetchOnly ? "blue" : "purple"}
+              size="sm"
+              onClick={handleFetch}
+              isLoading={isLoading}
+              loadingText={fetchOnly ? "Fetching..." : "Fetching & Building..."}
+              w="100%"
+            >
+              {emails.length > 0
+                ? fetchOnly
+                  ? "Refetch"
+                  : "Regenerate"
+                : fetchOnly
+                ? "Fetch"
+                : "Generate"}
+            </Button>
+          </VStack>
         </Box>
 
         {/* Content */}
@@ -71,20 +153,12 @@ export default function EmailList({
           )}
 
           {!isLoading && emails.length === 0 && !error && (
-            <Box p={6} textAlign="center">
-              <Flex justify="center" mb={3}>
-                <Mail size={24} color="#A0AEC0" />
-              </Flex>
-              <Text
-                fontSize="sm"
-                color="gray.500"
-                lineHeight="1.4"
-                maxW="200px"
-                mx="auto"
-              >
-                No emails loaded. Click "Fetch Emails" to start.
-              </Text>
-            </Box>
+            <EmptyState
+              icon={Mail}
+              title="No emails loaded"
+              description="Configure options above and click 'Generate' to start."
+              iconSize={24}
+            />
           )}
 
           {emails.length > 0 && (
@@ -96,113 +170,16 @@ export default function EmailList({
                 const hasInsights = insightCount > 0;
 
                 return (
-                  <ListItem
+                  <EmailItem
                     key={email.id}
-                    p={3}
-                    borderBottom="1px solid"
-                    borderColor="gray.100"
-                    cursor="pointer"
-                    bg={
-                      selectedEmailId === email.id
-                        ? "blue.50"
-                        : isProcessing
-                        ? "purple.50"
-                        : isQueued
-                        ? "orange.50"
-                        : "white"
-                    }
-                    _hover={{
-                      bg:
-                        selectedEmailId === email.id
-                          ? "blue.50"
-                          : isProcessing
-                          ? "purple.50"
-                          : isQueued
-                          ? "orange.50"
-                          : "gray.50",
-                    }}
-                    onClick={() => onEmailSelect(email.id)}
-                    opacity={isProcessing || isQueued ? 0.8 : 1}
-                  >
-                    <Flex justify="space-between" align="center">
-                      <Flex align="center" gap={2} flex="1" minW={0}>
-                        {isProcessing ? (
-                          <Box
-                            minW="18px"
-                            h="18px"
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="center"
-                            flexShrink={0}
-                          >
-                            <Spinner size="xs" color="purple.500" />
-                          </Box>
-                        ) : isQueued ? (
-                          <Box
-                            minW="18px"
-                            h="18px"
-                            display="flex"
-                            alignItems="center"
-                            justifyContent="center"
-                            flexShrink={0}
-                          >
-                            <Clock size={14} color="#D69E2E" />
-                          </Box>
-                        ) : (
-                          email.id in insightsByEmail && (
-                            <Box
-                              bg={hasInsights ? "red.500" : "gray.300"}
-                              color={hasInsights ? "white" : "gray.600"}
-                              borderRadius="full"
-                              minW="18px"
-                              h="18px"
-                              display="flex"
-                              alignItems="center"
-                              justifyContent="center"
-                              fontSize="xs"
-                              fontWeight="bold"
-                              flexShrink={0}
-                            >
-                              {insightCount}
-                            </Box>
-                          )
-                        )}
-                        <Text
-                          fontSize="sm"
-                          fontWeight="medium"
-                          color="gray.800"
-                          noOfLines={1}
-                          flex="1"
-                          minW={0}
-                          overflow="hidden"
-                          textOverflow="ellipsis"
-                        >
-                          {email.subject}
-                        </Text>
-                      </Flex>
-                      <Flex align="center" gap={2} flexShrink={0}>
-                        {email.emailType === "sent" && (
-                          <Badge colorScheme="green" size="sm">
-                            SENT
-                          </Badge>
-                        )}
-                      </Flex>
-                    </Flex>
-                    <Flex justify="space-between" align="center">
-                      <Text
-                        fontSize="xs"
-                        color="gray.600"
-                        noOfLines={1}
-                        flex="1"
-                        mr={2}
-                      >
-                        {email.from}
-                      </Text>
-                      <Text fontSize="xs" color="gray.400">
-                        {new Date(email.date).toLocaleDateString()}
-                      </Text>
-                    </Flex>
-                  </ListItem>
+                    email={email}
+                    isSelected={selectedEmailId === email.id}
+                    isProcessing={isProcessing}
+                    isQueued={isQueued}
+                    insightCount={insightCount}
+                    hasInsights={hasInsights}
+                    onEmailSelect={onEmailSelect}
+                  />
                 );
               })}
             </List>
