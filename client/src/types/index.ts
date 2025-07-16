@@ -1,8 +1,7 @@
 export interface FileItem {
   name: string;
   content: string;
-  createdAt: string;
-  updatedAt: string;
+  lastModified: Date;
 }
 
 export interface Email {

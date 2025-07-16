@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
-import { Box, Button, VStack, Text, Heading } from "@chakra-ui/react";
+import { Box, Button, Heading, Text, VStack } from "@chakra-ui/react";
+import { useEffect, useState } from "react";
 import {
+  Navigate,
+  Route,
   BrowserRouter as Router,
   Routes,
-  Route,
-  useLocation,
-  Navigate,
 } from "react-router-dom";
 import AdminDashboard from "./components/AdminDashboard";
 
@@ -22,7 +21,9 @@ const GmailIcon = ({ size = 20 }: { size?: number }) => (
 function LoginPage() {
   const handleGoogleLogin = () => {
     // Redirect to the server's OAuth endpoint for admin mode only
-    window.location.href = `http://localhost:3001/auth/gmail?mode=admin`;
+    window.location.href = `${
+      import.meta.env.VITE_SERVER_URI
+    }/auth/gmail?mode=admin`;
   };
 
   return (

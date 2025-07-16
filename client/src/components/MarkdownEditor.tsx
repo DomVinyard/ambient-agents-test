@@ -1,8 +1,8 @@
-import { Box, Text } from '@chakra-ui/react';
-import MDEditor from '@uiw/react-md-editor';
-import { useState, useEffect } from 'react';
-import { Edit } from 'lucide-react';
-import { FileItem } from '../types';
+import { Box, Text } from "@chakra-ui/react";
+import MDEditor from "@uiw/react-md-editor";
+import { useState, useEffect } from "react";
+import { Edit } from "lucide-react";
+import { FileItem } from "../types";
 
 interface MarkdownEditorProps {
   file: FileItem | null;
@@ -10,7 +10,7 @@ interface MarkdownEditorProps {
 }
 
 export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,9 +21,9 @@ export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
     }
   }, [file]);
 
-  const handleContentChange = (value: string = '') => {
+  const handleContentChange = (value: string = "") => {
     setContent(value);
-    setHasChanges(value !== (file?.content || ''));
+    setHasChanges(value !== (file?.content || ""));
   };
 
   const handleSave = () => {
@@ -48,15 +48,15 @@ export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
 
   if (!file) {
     return (
-      <Box 
-        flex="1" 
-        display="flex" 
-        alignItems="center" 
+      <Box
+        flex="1"
+        display="flex"
+        alignItems="center"
         justifyContent="center"
         bg="white"
       >
         <Box textAlign="center">
-          <Edit size={48} color="#CBD5E0" style={{ margin: '0 auto 16px' }} />
+          <Edit size={48} color="#CBD5E0" style={{ margin: "0 auto 16px" }} />
           <Text color="gray.500" fontSize="lg">
             Select a file to edit
           </Text>
@@ -80,16 +80,20 @@ export default function MarkdownEditor({ file, onSave }: MarkdownEditorProps) {
           height="calc(100vh - 140px)"
         />
       </Box>
-      
-      <Box 
-        position="absolute" 
-        bottom={4} 
+
+      <Box
+        position="absolute"
+        bottom={4}
         right={4}
-        fontSize="xs" 
+        fontSize="xs"
         color={isSaving ? "blue.500" : hasChanges ? "orange.500" : "gray.400"}
       >
-        {isSaving ? "Saving..." : hasChanges ? "Unsaved changes" : `Last updated: ${new Date(file.updatedAt).toLocaleString()}`}
+        {isSaving
+          ? "Saving..."
+          : hasChanges
+          ? "Unsaved changes"
+          : `Last updated: ${file.lastModified.toLocaleString()}`}
       </Box>
     </Box>
   );
-} 
+}

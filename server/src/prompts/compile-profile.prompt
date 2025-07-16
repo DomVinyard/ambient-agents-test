@@ -38,7 +38,10 @@ input:
       todaysDate:
         type: string
         description: "Today's date in YYYY-MM-DD format for temporal context"
-    required: [profileFiles, userInfo, todaysDate]
+      wordLimit:
+        type: number
+        description: "Maximum words allowed in the compiled profile"
+    required: [profileFiles, userInfo, todaysDate, wordLimit]
 ---
 {{role "system"}}
 You are an expert profile compiler creating an LLM-optimized assistant manual for {{userInfo.firstName}} {{userInfo.lastName}}.
@@ -122,4 +125,4 @@ Create a unified, flowing narrative (not sections) that naturally progresses fro
 
 {{/each}}
 
-Create a comprehensive, flowing LLM assistant manual that prioritizes essential information and enables genuinely useful assistance for {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}). 250 words max.
+Create a comprehensive, flowing LLM assistant manual that prioritizes essential information and enables genuinely useful assistance for {{userInfo.firstName}} {{userInfo.lastName}} ({{userInfo.email}}). {{wordLimit}} words max.

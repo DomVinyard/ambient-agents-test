@@ -143,7 +143,7 @@ export default function FileList({
                 </Badge>
               </Flex>
               <Text fontSize="xs" color="gray.500">
-                Updated {new Date(file.updatedAt).toLocaleDateString()}
+                Updated {file.lastModified.toLocaleDateString()}
               </Text>
             </MenuButton>
             <MenuList>

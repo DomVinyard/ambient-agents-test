@@ -9,7 +9,6 @@ import {
   IconButton,
   Flex,
   Divider,
-  useToast,
 } from "@chakra-ui/react";
 import { Brain, Mail, X, Copy } from "lucide-react";
 import { Email } from "../types";
@@ -34,29 +33,15 @@ export default function EmailViewer({
   showCloseButton = false,
   hasInsights = false,
 }: EmailViewerProps) {
-  const toast = useToast();
-
   const copyEmailContent = async () => {
     if (!email) return;
 
     const content = email.fullBody || email.snippet || "No content available";
     try {
       await navigator.clipboard.writeText(content);
-      toast({
-        title: "Copied to clipboard",
-        description: "Email content has been copied to your clipboard",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-      });
+      console.log("Email content copied to clipboard");
     } catch (err) {
-      toast({
-        title: "Failed to copy",
-        description: "Could not copy email content to clipboard",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
+      console.error("Failed to copy email content to clipboard");
     }
   };
   return (

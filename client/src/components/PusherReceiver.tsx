@@ -25,7 +25,7 @@ export function PusherReceiver({
 
     const pusher = new Pusher(pusherKey, {
       cluster: pusherCluster,
-      authEndpoint: "http://localhost:3001/api/pusher/auth",
+      authEndpoint: `${import.meta.env.VITE_SERVER_URI}/api/pusher/auth`,
       auth: {
         headers: {
           "Content-Type": "application/json",

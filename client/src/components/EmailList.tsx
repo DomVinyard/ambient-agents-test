@@ -1,22 +1,20 @@
 import {
-  Box,
-  VStack,
-  Button,
-  Text,
-  List,
   Alert,
   AlertIcon,
-  FormControl,
-  FormLabel,
+  Box,
+  Button,
+  ButtonGroup,
   Checkbox,
   HStack,
-  ButtonGroup,
+  List,
+  Text,
+  VStack,
 } from "@chakra-ui/react";
 import { Mail, Zap } from "lucide-react";
 import { useState } from "react";
 import { Email } from "../types";
-import EmptyState from "./EmptyState";
 import EmailItem from "./EmailItem";
+import EmptyState from "./EmptyState";
 
 interface EmailListProps {
   emails: Email[];
@@ -33,8 +31,6 @@ interface EmailListProps {
   queuedEmailIds: Set<string>;
   error: string | null;
   insightsByEmail: Record<string, any[]>;
-  hasExistingEmails: boolean;
-  hasExistingProfileFiles: boolean;
 }
 
 export default function EmailList({
@@ -47,14 +43,11 @@ export default function EmailList({
   queuedEmailIds,
   error,
   insightsByEmail,
-  hasExistingEmails,
-  hasExistingProfileFiles,
 }: EmailListProps) {
   const [totalEmails, setTotalEmails] = useState(100);
   const [fetchOnly, setFetchOnly] = useState(false);
-  const [deleteProfileFiles, setDeleteProfileFiles] = useState(true);
 
-  const emailCounts = [10, 50, 100, 500, 1000];
+  const emailCounts = [10, 100, 500, 1000, 2000];
 
   // Split emails evenly between sent and received
   const sentCount = Math.floor(totalEmails / 2);
@@ -65,7 +58,7 @@ export default function EmailList({
       buildProfile: !fetchOnly,
       sentCount,
       receivedCount,
-      deleteProfileFiles,
+      deleteProfileFiles: true,
     });
   };
 
@@ -92,7 +85,7 @@ export default function EmailList({
                     variant={totalEmails === count ? "solid" : "outline"}
                     flex="1"
                   >
-                    {count === 1000 ? "1k" : count}
+                    {count === 1000 ? "1k" : count === 2000 ? "2k" : count}
                   </Button>
                 ))}
               </ButtonGroup>
@@ -109,19 +102,6 @@ export default function EmailList({
                 </Text>
               </Checkbox>
             </HStack>
-
-            {hasExistingProfileFiles && (
-              <Checkbox
-                isChecked={deleteProfileFiles}
-                onChange={(e) => setDeleteProfileFiles(e.target.checked)}
-                colorScheme="red"
-                size="sm"
-              >
-                <Text fontSize="xs" fontWeight="medium">
-                  Delete existing files first
-                </Text>
-              </Checkbox>
-            )}
 
             <Button
               leftIcon={fetchOnly ? <Mail size={14} /> : <Zap size={14} />}

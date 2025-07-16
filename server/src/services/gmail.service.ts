@@ -3,6 +3,13 @@ import { gmail_v1 } from 'googleapis';
 import { GaxiosResponse } from 'gaxios';
 import fetch from 'node-fetch';
 import { extractEmailBodyAsPlaintext } from '../utils/email-to-plaintext';
+import { 
+  GMAIL_FETCH_LIMIT_PER_TYPE, 
+  GMAIL_CONCURRENT_REQUESTS, 
+  GMAIL_BATCH_DELAY_MS, 
+  GMAIL_RETRY_DELAY_MS,
+  GMAIL_MAX_RETRIES 
+} from '../consts';
 
 /**
  * Gmail Service for fetching emails
@@ -15,13 +22,13 @@ export class GmailService {
   private readonly CLIENT_SECRET: string;
   private readonly REDIRECT_URI: string;
   
-  // Configurable email fetch limit - change this number to fetch more/fewer emails of each type
-  private readonly EMAIL_FETCH_LIMIT_PER_TYPE = 10;
+  // Configurable email fetch limit - change this number in consts.ts
+  private readonly EMAIL_FETCH_LIMIT_PER_TYPE = GMAIL_FETCH_LIMIT_PER_TYPE;
   
-  // Rate limiting configuration for large batches
-  private readonly CONCURRENT_REQUESTS = 20; // Process 20 emails at a time
-  private readonly BATCH_DELAY = 250;        // 250ms between batches
-  private readonly RETRY_DELAY = 1000;       // 1s base delay for retries
+  // Rate limiting configuration for large batches - configure in consts.ts
+  private readonly CONCURRENT_REQUESTS = GMAIL_CONCURRENT_REQUESTS;
+  private readonly BATCH_DELAY = GMAIL_BATCH_DELAY_MS;
+  private readonly RETRY_DELAY = GMAIL_RETRY_DELAY_MS;
 
   constructor() {
     this.CLIENT_ID = process.env.GMAIL_CLIENT_ID!;
@@ -64,7 +71,7 @@ export class GmailService {
 
   private async retryWithBackoff<T>(
     fn: () => Promise<T>,
-    maxRetries: number = 3,
+    maxRetries: number = GMAIL_MAX_RETRIES,
     baseDelay: number = this.RETRY_DELAY
   ): Promise<T> {
     for (let attempt = 0; attempt < maxRetries; attempt++) {

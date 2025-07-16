@@ -1,244 +1,76 @@
 import { Box, Flex } from "@chakra-ui/react";
 import { useState } from "react";
-import Toolbar from "./Toolbar";
+
+import { useDataLoader } from "../hooks/useDataLoader";
+import { useEmailManager } from "../hooks/useEmailManager";
+import { useInsightsManager } from "../hooks/useInsightsManager";
+import { useProfileManager } from "../hooks/useProfileManager";
+import { useProgress } from "../hooks/useProgress";
+
+import DashboardPanel from "./DashboardPanel";
 import EmailList from "./EmailList";
 import EmailViewer from "./EmailViewer";
-import InsightsViewer from "./InsightsViewer";
-import FileList from "./FileList";
 import FileEditor from "./FileEditor";
-import DashboardPanel from "./DashboardPanel";
-import { PusherReceiver } from "./PusherReceiver";
+import FileList from "./FileList";
+import InsightsViewer from "./InsightsViewer";
 import MasterProgressBar from "./MasterProgressBar";
-import { useFileManager } from "../hooks/useFileManager";
-import { useEmailProcessing } from "../hooks/useEmailProcessing";
-import { useProfileBuilder } from "../hooks/useProfileBuilder";
-import { useDataLoader } from "../hooks/useDataLoader";
-import { useAppToast } from "../hooks/useAppToast";
-import { storageService } from "../services/storage.service";
-import axios from "axios";
+import { PusherReceiver } from "./PusherReceiver";
+import Toolbar from "./Toolbar";
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
-  // Loading states
-  const [fetchingEmails, setFetchingEmails] = useState(false);
-  const [compilingProfile, setCompilingProfile] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [insightError, setInsightError] = useState<string | null>(null);
-
-  const { showError, showSuccess, showWarning, showInfo } = useAppToast();
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
 
   // Custom hooks
-  const {
-    emails,
-    setEmails,
-    selectedEmailId,
-    setSelectedEmailId,
-    insights,
-    setInsights,
-    insightsByEmail,
-    setInsightsByEmail,
-    userInfo,
-    setUserInfo,
-    selectedEmail,
-    clearAllData,
-    resetEmailData,
-  } = useDataLoader();
+  const dataLoader = useDataLoader();
+  const { emails, userInfo, isLoading: emailsLoading } = dataLoader;
 
   const {
-    extractingInsights,
-    processingEmailIds,
-    queuedEmailIds,
-    setProcessingEmailIds,
-    setQueuedEmailIds,
-    handleExtractInsights,
-    getAuthTokens,
-  } = useEmailProcessing();
+    isProcessing: extractingInsights,
+    handleFetchEmails,
+    handleDeleteAllData,
+  } = useEmailManager();
 
+  const profileManager = useProfileManager();
   const {
-    buildingProfile,
-    masterProgress,
-    setMasterProgress,
+    isBuilding: buildingProfile,
+    progress: profileProgress,
     handleBuildProfile,
-    formatAutomationData,
-  } = useProfileBuilder();
-
-  const {
+    handleCompileProfile,
     files,
     selectedFileItem,
     handleSaveFile,
-    createOrUpdateFile,
     handleFileSelect,
     handleDeleteFile,
-    clearAllFiles,
-  } = useFileManager();
+    handleDeleteAllFiles,
+  } = profileManager;
 
-  const handleFetchEmails = async (options: {
-    buildProfile: boolean;
-    sentCount: number;
-    receivedCount: number;
-    deleteProfileFiles: boolean;
-  }) => {
-    setFetchingEmails(true);
-    setEmailError(null);
+  const progressManager = useProgress(profileProgress);
+  const { masterProgress, setMasterProgress } = progressManager;
 
-    if (options.buildProfile) {
-      setMasterProgress((prev) => ({ ...prev, isEndToEndProcess: true }));
-    }
+  const insightsManager = useInsightsManager(selectedEmailId);
+  const { insights, insightsByEmail, insightError, extractInsightsFromEmail } =
+    insightsManager;
 
-    if (options.deleteProfileFiles) {
-      clearAllFiles();
-    }
-
-    resetEmailData();
-    setInsightError(null);
-    setProcessingEmailIds(new Set());
-    setQueuedEmailIds(new Set());
-
-    try {
-      const tokens = getAuthTokens();
-      const response = await axios.post(
-        "http://localhost:3001/api/gmail/fetch-emails",
-        {
-          tokens,
-          sessionId: "default",
-          sentCount: options.sentCount,
-          receivedCount: options.receivedCount,
-        }
-      );
-
-      const newEmails = response.data.emails;
-      setEmails(newEmails);
-      setUserInfo(response.data.userInfo);
-
-      await Promise.all([
-        storageService.setEmails(newEmails),
-        storageService.setUserInfo(response.data.userInfo),
-        storageService.setInsights({}),
-      ]);
-
-      if (options.buildProfile && newEmails.length > 0) {
-        await handleBuildProfile(
-          newEmails,
-          response.data.userInfo,
-          {},
-          setInsightsByEmail,
-          setEmails,
-          setProcessingEmailIds,
-          createOrUpdateFile
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching emails:", error);
-      setEmailError("Failed to fetch emails. Please try again.");
-      showError("Error", "Failed to fetch emails. Please try again.");
-    } finally {
-      setFetchingEmails(false);
-      if (!options.buildProfile) {
-        setMasterProgress((prev) => ({
-          ...prev,
-          isEndToEndProcess: false,
-          fetchProgress: null,
-        }));
-      }
-    }
-  };
-
-  const handleCompileProfile = async () => {
-    setCompilingProfile(true);
-
-    try {
-      const tokens = getAuthTokens();
-      const profileFiles = Object.entries(files)
-        .filter(
-          ([fileName]) => !["full.md", "automation.md"].includes(fileName)
-        )
-        .reduce((acc, [fileName, file]) => {
-          acc[fileName] = file.content;
-          return acc;
-        }, {} as Record<string, string>);
-
-      if (Object.keys(profileFiles).length === 0) {
-        showWarning(
-          "No Profile Files",
-          "You need to create some profile files first."
-        );
-        return;
-      }
-
-      const [compileResponse, automationResponse] = await Promise.all([
-        axios.post("http://localhost:3001/api/ai/compile-profile", {
-          tokens,
-          profileFiles,
-          userInfo,
-          sessionId: "default",
-        }),
-        axios.post("http://localhost:3001/api/ai/analyze-automation", {
-          tokens,
-          profileFiles,
-          userInfo,
-          sessionId: "default",
-        }),
-      ]);
-
-      createOrUpdateFile("full.md", compileResponse.data.content);
-      createOrUpdateFile(
-        "automation.md",
-        formatAutomationData(automationResponse.data)
-      );
-
-      showSuccess(
-        "Profile Compiled",
-        "Successfully compiled profile and automation files."
-      );
-    } catch (error) {
-      console.error("Error compiling profile:", error);
-      showError("Error", "Failed to compile profile. Please try again.");
-    } finally {
-      setCompilingProfile(false);
-    }
-  };
-
-  const handleDeleteAllData = async () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete ALL data? This will remove emails, insights, and profile files. This action cannot be undone."
-      )
-    ) {
-      try {
-        await clearAllData();
-        clearAllFiles();
-        setEmailError(null);
-        setInsightError(null);
-
-        showSuccess(
-          "All Data Deleted",
-          "Successfully deleted all emails, insights, and profile files."
-        );
-      } catch (error) {
-        console.error("Error clearing data:", error);
-        showError("Error", "Failed to clear all data. Please try again.");
-      }
-    }
-  };
-
-  const handleDeleteAllFiles = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete all profile files? This action cannot be undone."
-      )
-    ) {
-      clearAllFiles();
-      showInfo("Files Deleted", "All profile files have been deleted.");
-    }
-  };
-
+  const selectedEmail = selectedEmailId
+    ? emails.find((e) => e.id === selectedEmailId) || null
+    : null;
   const showInsightsPanel =
     insights.length > 0 || extractingInsights || insightError;
-
   const hasFiles = Object.keys(files).length > 0;
+
+  const handleExtractInsights = async () => {
+    if (!selectedEmail || !userInfo) return;
+
+    try {
+      await extractInsightsFromEmail(selectedEmail, userInfo);
+    } catch (error) {
+      console.error("Error extracting insights:", error);
+    }
+  };
 
   return (
     <Box h="100vh" bg="gray.50">
@@ -249,7 +81,12 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
         }}
       />
 
-      <Toolbar onLogout={onLogout} onDeleteAllData={handleDeleteAllData} />
+      <Toolbar
+        onLogout={onLogout}
+        onDeleteAllData={() =>
+          handleDeleteAllData({ insightsManager, profileManager })
+        }
+      />
 
       <MasterProgressBar
         fetchProgress={masterProgress.fetchProgress}
@@ -265,14 +102,18 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             emails={emails}
             selectedEmailId={selectedEmailId}
             onEmailSelect={setSelectedEmailId}
-            onFetchEmails={handleFetchEmails}
-            isLoading={fetchingEmails || buildingProfile}
-            processingEmailIds={processingEmailIds}
-            queuedEmailIds={queuedEmailIds}
-            error={emailError}
+            onFetchEmails={(options) =>
+              handleFetchEmails(options, {
+                profileManager,
+                insightsManager,
+                progressManager,
+              })
+            }
+            isLoading={emailsLoading || buildingProfile}
+            processingEmailIds={new Set()}
+            queuedEmailIds={new Set()}
+            error={null}
             insightsByEmail={insightsByEmail}
-            hasExistingEmails={emails.length > 0}
-            hasExistingProfileFiles={hasFiles}
           />
         </DashboardPanel>
 
@@ -280,19 +121,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {selectedEmail && (
             <EmailViewer
               email={selectedEmail}
-              onExtractInsights={() =>
-                handleExtractInsights(
-                  selectedEmailId,
-                  selectedEmail,
-                  userInfo,
-                  emails,
-                  insightsByEmail,
-                  setEmails,
-                  setInsightsByEmail,
-                  setInsights,
-                  setInsightError
-                )
-              }
+              onExtractInsights={handleExtractInsights}
               isLoading={extractingInsights}
               error={null}
               onClose={() => setSelectedEmailId(null)}
@@ -309,15 +138,10 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <InsightsViewer
               insights={insights}
               onApplyToBio={() =>
-                handleBuildProfile(
-                  emails,
-                  userInfo,
-                  insightsByEmail,
-                  setInsightsByEmail,
-                  setEmails,
-                  setProcessingEmailIds,
-                  createOrUpdateFile
-                )
+                handleBuildProfile({
+                  insightsManager,
+                  progressManager,
+                })
               }
               isLoading={buildingProfile}
               isExtracting={extractingInsights}
@@ -329,27 +153,34 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           )}
         </DashboardPanel>
 
-        <DashboardPanel width={hasFiles ? "20%" : "40%"}>
-          <FileList
-            files={files}
-            selectedFile={selectedFileItem}
-            onFileSelect={handleFileSelect}
-            onDeleteFile={handleDeleteFile}
-            onDeleteAll={handleDeleteAllFiles}
-            onCompileProfile={handleCompileProfile}
-            isCompiling={compilingProfile}
-          />
+        <DashboardPanel width="20%" isEmpty={!hasFiles}>
+          {hasFiles && (
+            <FileList
+              files={files}
+              selectedFile={selectedFileItem}
+              onFileSelect={handleFileSelect}
+              onDeleteFile={handleDeleteFile}
+              onDeleteAll={handleDeleteAllFiles}
+              onCompileProfile={() =>
+                handleCompileProfile({
+                  files,
+                  userInfo,
+                })
+              }
+              isCompiling={false}
+            />
+          )}
         </DashboardPanel>
 
-        {hasFiles && (
-          <DashboardPanel width="20%">
+        <DashboardPanel width="20%" isEmpty={!selectedFileItem}>
+          {selectedFileItem && (
             <FileEditor
               file={selectedFileItem}
               hasFiles={hasFiles}
               onSave={handleSaveFile}
             />
-          </DashboardPanel>
-        )}
+          )}
+        </DashboardPanel>
       </Flex>
     </Box>
   );
